@@ -38,7 +38,12 @@ export type ASTNode<
   Type extends NodeType = NodeType,
   Name extends string = string,
   Value extends any = any,
-  Children extends ASTNode[] = ASTNode<NodeType, string, any, any>[]
+  Children extends readonly ASTNode[] = readonly ASTNode<
+    NodeType,
+    string,
+    any,
+    any
+  >[]
 > = {
   type: Type;
   name: Name;
