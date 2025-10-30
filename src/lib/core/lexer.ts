@@ -7,7 +7,7 @@ export type BreakingToken =
   | TokenType.SEMICOLON
   | TokenType.SPACE;
 
-export type IsWhitespace<T> = T extends `${TokenType.SPACE}`
+export type IsWhitespace<T extends string> = T extends `${TokenType.SPACE}`
   ? true
   : T extends `${TokenType.COMMA}`
   ? true
@@ -27,26 +27,13 @@ export type ProcessNameCollection<
         ...Ctx["tokens"],
         ...(Ctx["nameCollection"] extends ""
           ? []
-          : [
-              Token<
-                TokenType.NAME,
-                TokenSubType.REFERENCE,
-                Ctx["nameCollection"]
-              >
-            ])
+          : [Token<TokenType.NAME, Ctx["nameCollection"]>])
       ]
     : [
         ...Ctx["tokens"],
         ...(Ctx["nameCollection"] extends ""
           ? [_Token]
-          : [
-              Token<
-                TokenType.NAME,
-                TokenSubType.REFERENCE,
-                Ctx["nameCollection"]
-              >,
-              _Token
-            ])
+          : [Token<TokenType.NAME, Ctx["nameCollection"]>, _Token])
       ];
 };
 

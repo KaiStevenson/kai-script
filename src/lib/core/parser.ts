@@ -107,10 +107,23 @@ export type StackWithoutLast<Stack extends ParserCtx["stack"]> = Stack extends [
   ? []
   : never;
 
-export type ResolveNodeFromToken<_Token extends Token> =
-  _Token["subType"] extends TokenSubType.LITERAL
-    ? ASTNode<NodeType.INT, "UNNAMED", _Token["name"], []>
-    : ASTNode<NodeType.EXT, _Token["name"], null, []>;
+type NULL_SENTINEL = {
+  NULL: true;
+};
+
+export type ParseNumberLiteral<T extends string> =
+  T extends `${infer Inner extends number}` ? Inner : NULL_SENTINEL;
+
+export type ParseStringLiteral<T extends string> =
+  T extends `"${infer Inner extends string}"` ? Inner : NULL_SENTINEL;
+
+export type ResolveNodeFromToken<_Token extends Token> = ParseNumberLiteral<
+  _Token["name"]
+> extends number
+  ? ASTNode<NodeType.INT, "", ParseNumberLiteral<_Token["name"]>, []>
+  : ParseStringLiteral<_Token["name"]> extends string
+  ? ASTNode<NodeType.INT, "", ParseStringLiteral<_Token["name"]>, []>
+  : ASTNode<NodeType.EXT, _Token["name"], null, []>;
 
 export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
   infer Head extends Token,
@@ -194,4 +207,4 @@ export type Parse<Raw extends readonly Token[]> = _Parse<{
   stack: [ASTNode<NodeType.ROOT, "ROOT", null, []>];
 }>;
 
-const test_result = null as unknown as Parse<Lex<"test(a)">>;
+const test_result = null as unknown as Parse<Lex<`test(135)`>>;

@@ -15,11 +15,9 @@ export enum TokenSubType {
 
 export type Token<
   Type extends TokenType = TokenType,
-  Subtype extends TokenSubType = TokenSubType,
   Name extends string = string
 > = {
   type: Type;
-  subType: Subtype;
   name: Name;
 };
 
