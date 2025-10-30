@@ -1,4 +1,4 @@
-import { LexerCtx, Token, TokenType } from "./common";
+import { LexerCtx, Token, TokenSubType, TokenType } from "./common";
 
 export type BreakingToken =
   | TokenType.OPEN_PAREN
@@ -16,7 +16,7 @@ export type IsWhitespace<T> = T extends `${TokenType.SPACE}`
   : false;
 
 export type ProcessNameCollection<
-  Cur extends LexerCtx,
+  Ctx extends LexerCtx,
   Tail extends string,
   _Token extends Token | null
 > = {
@@ -24,16 +24,29 @@ export type ProcessNameCollection<
   nameCollection: "";
   tokens: _Token extends null
     ? [
-        ...Cur["tokens"],
-        ...(Cur["nameCollection"] extends ""
+        ...Ctx["tokens"],
+        ...(Ctx["nameCollection"] extends ""
           ? []
-          : [Token<TokenType.UNIQUE_SYMBOL, Cur["nameCollection"]>])
+          : [
+              Token<
+                TokenType.NAME,
+                TokenSubType.REFERENCE,
+                Ctx["nameCollection"]
+              >
+            ])
       ]
     : [
-        ...Cur["tokens"],
-        ...(Cur["nameCollection"] extends ""
+        ...Ctx["tokens"],
+        ...(Ctx["nameCollection"] extends ""
           ? [_Token]
-          : [Token<TokenType.UNIQUE_SYMBOL, Cur["nameCollection"]>, _Token])
+          : [
+              Token<
+                TokenType.NAME,
+                TokenSubType.REFERENCE,
+                Ctx["nameCollection"]
+              >,
+              _Token
+            ])
       ];
 };
 
@@ -53,9 +66,7 @@ export type _Lex<Ctx extends LexerCtx> =
           nameCollection: `${Ctx["nameCollection"]}${Head}`;
           tokens: Ctx["tokens"];
         }>
-    : // : Ctx["next"] extends `${infer Head}`
-      // ? _Lex<{ next: Head; tokens: Ctx["tokens"] }>
-      Ctx["tokens"];
+    : Ctx["tokens"];
 
 export type Lex<Raw extends string> = _Lex<{
   next: `${Raw};`;

@@ -4,14 +4,22 @@ export enum TokenType {
   SPACE = " ",
   SEMICOLON = ";",
   COMMA = ",",
-  UNIQUE_SYMBOL = "UNIQUE_SYMBOL",
+  NAME = "NAME",
+}
+
+export enum TokenSubType {
+  NA = "NA",
+  LITERAL = "LITERAL",
+  REFERENCE = "REFERENCE",
 }
 
 export type Token<
   Type extends TokenType = TokenType,
+  Subtype extends TokenSubType = TokenSubType,
   Name extends string = string
 > = {
   type: Type;
+  subType: Subtype;
   name: Name;
 };
 
@@ -23,23 +31,25 @@ export type LexerCtx = {
 
 export enum NodeType {
   ROOT = "ROOT",
-  LITERAL = "LITERAL",
-  CALL = "CALL",
+  INT = "INT",
+  EXT = "EXT",
   PARSER_ERROR = "PARSER_ERROR",
 }
 
 export type ASTNode<
   Type extends NodeType = NodeType,
   Name extends string = string,
-  Children extends ASTNode[] = ASTNode<NodeType, string, any>[]
+  Value extends any = any,
+  Children extends ASTNode[] = ASTNode<NodeType, string, any, any>[]
 > = {
   type: Type;
   name: Name;
+  value: Value;
   children: Children;
 };
 
 export type ParserCtx = {
   remainingTokens: readonly Token[];
-  lastName: string | null;
+  lastToken: Token | null;
   stack: readonly ASTNode[];
 };

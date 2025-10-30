@@ -1,5 +1,12 @@
-import { ASTNode, NodeType, ParserCtx, Token, TokenType } from "./common";
-import { IsWhitespace, Lex } from "./lexer";
+import {
+  ASTNode,
+  NodeType,
+  ParserCtx,
+  Token,
+  TokenSubType,
+  TokenType,
+} from "./common";
+import { Lex } from "./lexer";
 
 /* 
 start
@@ -46,10 +53,16 @@ finally:
 
  */
 
-export type Error<T extends string> = ASTNode<NodeType.PARSER_ERROR, T, []>;
+export type Error<T extends string> = ASTNode<
+  NodeType.PARSER_ERROR,
+  "Error",
+  T,
+  []
+>;
 
 export type PushChild<Node extends ASTNode, Child extends ASTNode> = {
   type: Node["type"];
+  value: Node["value"];
   name: Node["name"];
   children: [...Node["children"], Child];
 };
@@ -94,22 +107,27 @@ export type StackWithoutLast<Stack extends ParserCtx["stack"]> = Stack extends [
   ? []
   : never;
 
+export type ResolveNodeFromToken<_Token extends Token> =
+  _Token["subType"] extends TokenSubType.LITERAL
+    ? ASTNode<NodeType.INT, "UNNAMED", _Token["name"], []>
+    : ASTNode<NodeType.EXT, _Token["name"], null, []>;
+
 export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
   infer Head extends Token,
   ...infer Tail extends readonly Token[]
 ]
-  ? Ctx["lastName"] extends string
-    ? Head["type"] extends TokenType.UNIQUE_SYMBOL
+  ? Ctx["lastToken"] extends Token
+    ? Head["type"] extends TokenType.NAME
       ? // we already have a lastName
         // mutate last element of stack to push lastName as child
         // lastName = nextToken
         // goto start
         _Parse<{
-          lastName: Head["name"];
+          lastToken: Head;
           remainingTokens: Tail;
           stack: PushChildToLastElementOfStack<
             Ctx["stack"],
-            ASTNode<NodeType.LITERAL, Ctx["lastName"], []>
+            ResolveNodeFromToken<Ctx["lastToken"]>
           >;
         }>
       : //nextToken is openParen or close paren
@@ -120,7 +138,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
         // [stack[last - 1].children.push(stack.pop)
         // goto start
         _Parse<{
-          lastName: null;
+          lastToken: null;
           remainingTokens: Tail;
           // first push the last name onto the children of the top
           // then push the top onto the children of the next
@@ -130,7 +148,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
               Ctx["stack"],
               PushChild<
                 GetLastOnStack<Ctx["stack"]>,
-                ASTNode<NodeType.LITERAL, Ctx["lastName"], []>
+                ResolveNodeFromToken<Ctx["lastToken"]>
               >
             >
           >;
@@ -139,23 +157,23 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
       ? // push lastName onto stack
         // goto start
         _Parse<{
-          lastName: null;
+          lastToken: null;
           remainingTokens: Tail;
-          stack: [...Ctx["stack"], ASTNode<NodeType.CALL, Ctx["lastName"], []>];
+          stack: [...Ctx["stack"], ResolveNodeFromToken<Ctx["lastToken"]>];
         }>
       : Ctx & Error<`Was not expecting ${Head["type"]}`>
     : // expect nextToken to be a name or close paren
-    Head["type"] extends TokenType.UNIQUE_SYMBOL
+    Head["type"] extends TokenType.NAME
     ? // lastName = nextToken
       // goto start
       _Parse<{
-        lastName: Head["name"];
+        lastToken: Head;
         remainingTokens: Tail;
         stack: Ctx["stack"];
       }>
     : Head["type"] extends TokenType.CLOSE_PAREN
     ? _Parse<{
-        lastName: null;
+        lastToken: null;
         remainingTokens: Tail;
         // push the top onto the children of the next
         // then remove the top
@@ -168,45 +186,12 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
       }>
     : Ctx &
         Error<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
-  : Ctx["stack"];
-
-// v1
-//   ? Ctx["isCollecting"] extends true
-//     ? Head["type"] extends TokenType.CLOSE_PAREN
-//       ? "return"
-//       : Head["type"] extends TokenType.UNIQUE_SYMBOL
-//       ? _Parse<{
-//         remainingTokens: Tail;
-//         isCollecting: true;
-//         name: Ctx["name"];
-//         // fuck, how to do this without advancing seek pointer??
-//         ret: [...Ctx["ret"], ASTNode;
-//       }>
-//       : Error<"Expected another name, or `)`">
-//     : Head["type"] extends TokenType.OPEN_PAREN
-//     ? _Parse<{
-//         remainingTokens: Tail;
-//         isCollecting: true;
-//         name: Ctx["name"];
-//         ret: Ctx["ret"];
-//       }>
-//     : Error<"Expected open paren">
-//   : Ctx["ret"];
-
-//v2
-//   ? Ctx["previousName"] extends null
-//     ? Head["type"] extends TokenType.UNIQUE_SYMBOL
-//       ? _Parse<{ remainingTokens: Tail; previousName: Head; node: Ctx["node"] }>
-//       : ASTNode<NodeType.PARSER_ERROR, "Expected name", []>
-//     : IsWhitespace<`${Head["type"]}`> extends true
-//         ? ASTNode<NodeType.PARSER_ERROR, "1", []>
-//         : ASTNode<NodeType.PARSER_ERROR, "2", []>
-//   : Ctx["node"];
+  : Ctx["stack"][0];
 
 export type Parse<Raw extends readonly Token[]> = _Parse<{
-  lastName: null;
+  lastToken: null;
   remainingTokens: Raw;
-  stack: [ASTNode<NodeType.ROOT, "ROOT", []>];
+  stack: [ASTNode<NodeType.ROOT, "ROOT", null, []>];
 }>;
 
-const a = "a" as any as Parse<Lex<"test(a)">>;
+const test_result = null as unknown as Parse<Lex<"test(a)">>;
