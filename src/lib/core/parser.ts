@@ -214,7 +214,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
 export type Parse<Raw extends readonly Token[]> = _Parse<{
   lastToken: null;
   remainingTokens: Raw;
-  stack: [ASTNode<NodeType.ROOT, "ROOT", null, []>];
+  stack: [ASTNode<NodeType.EXT, "arr", null, []>];
 }>;
 
 const test_result = null as unknown as Parse<Lex<`test(135)`>>;

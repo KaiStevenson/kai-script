@@ -28,7 +28,6 @@ export type LexerCtx = {
 };
 
 export enum NodeType {
-  ROOT = "ROOT",
   INT = "INT",
   EXT = "EXT",
   PARSER_ERROR = "PARSER_ERROR",
