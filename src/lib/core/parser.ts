@@ -199,6 +199,16 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
       }>
     : Ctx &
         Error<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
+  : Ctx["lastToken"] extends Token
+  ? // case where we ended with a name
+    _Parse<{
+      lastToken: null;
+      remainingTokens: [];
+      stack: PushChildToLastElementOfStack<
+        Ctx["stack"],
+        ResolveNodeFromToken<Ctx["lastToken"]>
+      >;
+    }>
   : Ctx["stack"][0];
 
 export type Parse<Raw extends readonly Token[]> = _Parse<{
