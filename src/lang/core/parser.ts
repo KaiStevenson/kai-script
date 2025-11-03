@@ -8,51 +8,6 @@ import {
 } from "./common";
 import { Lex } from "./lexer";
 
-/* 
-start
-if no 'lastName'
-then:
-    expect nextToken to be a name
-    lastName = nextToken
-    goto start
-    
-else:
-    if nextToken is name
-    then:
-        // we already have a lastName
-        mutate last element of stack to push lastName as child
-        lastName = nextToken
-        goto start
-
-    else:
-        //nextToken is openParen or close paren
-        if nextToken is closeParen
-        then:
-            set last element of stack as child of prev element on stack
-            pop stack
-            // [stack[last - 1].children.push(stack.pop)
-            goto start
-        else if nextToken is openParen:
-            push lastName onto stack
-            goto start
-
-
-finally:
-    // only one element remains on the stack
-    return stack[0]
-
-
-    CALL ( param, CALL2 ( param2 ) )
-
-    param2 ret call2 param ret call
-
-    | call
-    |-- param
-    |-- | call2
-        |-- param2
-
- */
-
 export type Error<T extends string> = ASTNode<
   NodeType.PARSER_ERROR,
   "Error",
@@ -131,9 +86,9 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
 ]
   ? Ctx["lastToken"] extends Token
     ? Head["type"] extends TokenType.NAME
-      ? // we already have a lastName
-        // mutate last element of stack to push lastName as child
-        // lastName = nextToken
+      ? // we already have a lastToken
+        // mutate last element of stack to push lastToken as child
+        // lastToken = nextToken
         // goto start
         _Parse<{
           lastToken: Head;
@@ -145,7 +100,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
         }>
       : //nextToken is openParen or close paren
       Head["type"] extends TokenType.CLOSE_PAREN
-      ? // handle lastName
+      ? // handle lastToken
         // set last element of stack as child of prev element on stack
         // pop stack
         // [stack[last - 1].children.push(stack.pop)
@@ -167,7 +122,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
           >;
         }>
       : Head["type"] extends TokenType.OPEN_PAREN
-      ? // push lastName onto stack
+      ? // push lastToken onto stack
         // goto start
         _Parse<{
           lastToken: null;
@@ -177,7 +132,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
       : Ctx & Error<`Was not expecting ${Head["type"]}`>
     : // expect nextToken to be a name or close paren
     Head["type"] extends TokenType.NAME
-    ? // lastName = nextToken
+    ? // lastToken = nextToken
       // goto start
       _Parse<{
         lastToken: Head;
@@ -216,5 +171,3 @@ export type Parse<Raw extends readonly Token[]> = _Parse<{
   remainingTokens: Raw;
   stack: [ASTNode<NodeType.EXT, "arr", null, []>];
 }>;
-
-const test_result = null as unknown as Parse<Lex<`test(135)`>>;
