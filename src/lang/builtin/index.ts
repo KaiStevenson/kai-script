@@ -1,3 +1,4 @@
+import { FnPrim } from "../core/eval";
 import {
   AddNumbers,
   AddStrings,
@@ -32,3 +33,7 @@ export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
   : Args extends [infer M extends number, infer N extends number]
   ? Multiply<M, N>
   : FnError<`Can only multiply [number, number], but got ${ToString<Args>}`>;
+
+export type BUILTIN_Call<Args extends readonly any[]> = Args extends [infer Fn extends FnPrim, ...infer Valuex extends readonly any[]] = 
+
+export type BUILTIN_Map<Args extends readonly any[]>
