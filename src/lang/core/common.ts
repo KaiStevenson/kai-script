@@ -55,3 +55,18 @@ export type ParserCtx = {
   lastToken: Token | null;
   stack: readonly ASTNode[];
 };
+
+export type StackFrame<
+  Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>,
+  Parent extends StackFrame | null = any
+> = {
+  bindings: Bindings;
+  parent: Parent;
+};
+
+export type EmptyStackFrame = StackFrame<{}, null>;
+
+export type WithPushedBindings<
+  OldFrame extends StackFrame,
+  Bindings extends StackFrame["bindings"]
+> = StackFrame<Bindings, OldFrame>;

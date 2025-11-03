@@ -1,11 +1,5 @@
-import { ASTNode } from "../core/common";
-import {
-  CallFn,
-  FnPrim,
-  GetEvaluatedChildren,
-  StackFrame,
-  EvalError,
-} from "../core/eval";
+import { ASTNode, StackFrame } from "../core/common";
+import { CallFn, FnPrim, GetEvaluatedChildren, EvalError } from "../core/eval";
 import { ToString } from "../util";
 
 export type SBUILTIN_Call<

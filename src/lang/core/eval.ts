@@ -7,20 +7,9 @@ import {
   SBUILTIN_Map,
 } from "../builtin";
 import { ToString } from "../util";
-import { ASTNode, NodeType } from "./common";
+import { ASTNode, EmptyStackFrame, NodeType, StackFrame } from "./common";
 import { Lex } from "./lexer";
 import { Parse } from "./parser";
-
-export type GetEvaluatedChildren<
-  Node extends ASTNode,
-  Frame extends StackFrame
-> = Node["children"] extends infer Children extends readonly ASTNode[]
-  ? {
-      [Idx in keyof Children]: Children[Idx] extends ASTNode
-        ? Evaluate<Children[Idx], Frame>
-        : never;
-    }
-  : never;
 
 export type SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
 export type MapBuiltins<
@@ -43,21 +32,6 @@ export type MapBuiltins<
   : never;
 
 export type EvalError<T extends string> = `Eval error: ${T}`;
-
-export type StackFrame<
-  Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>,
-  Parent extends StackFrame | null = any
-> = {
-  bindings: Bindings;
-  parent: Parent;
-};
-
-export type EmptyStackFrame = StackFrame<{}, null>;
-
-export type WithPushedBindings<
-  OldFrame extends StackFrame,
-  Bindings extends StackFrame["bindings"]
-> = StackFrame<Bindings, OldFrame>;
 
 export type FindInStack<
   Frame extends StackFrame,
@@ -116,6 +90,17 @@ export type Evaluate<
       : BI
     : never
   : EvalError<`Unhandled node type ${Node["type"]}`>;
+
+export type GetEvaluatedChildren<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = Node["children"] extends infer Children extends readonly ASTNode[]
+  ? {
+      [Idx in keyof Children]: Children[Idx] extends ASTNode
+        ? Evaluate<Children[Idx], Frame>
+        : never;
+    }
+  : never;
 
 const input = `map(arr(5,5,5), fn(n, add(n, 1)))` as const;
 const lex_result = null as unknown as Lex<typeof input>;
