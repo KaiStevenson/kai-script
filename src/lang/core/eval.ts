@@ -52,15 +52,17 @@ export type FnPrim<
   Fn extends ASTNode = ASTNode
 > = { args: Args; fn: Fn };
 
-// Can support multiple args, just need to make the last arg be the fn
 export type HandleFn<Node extends ASTNode> = Node["children"] extends [
-  infer Arg extends ASTNode,
+  ...infer Args extends ASTNode[],
   infer Fn extends ASTNode
 ]
-  ? FnPrim<[Arg], Fn>
+  ? FnPrim<Args, Fn>
   : never;
 
-type MapZip<T extends readonly ASTNode[], U extends readonly PropertyKey[]> = {
+export type MapZip<
+  T extends readonly ASTNode[],
+  U extends readonly PropertyKey[]
+> = {
   [Idx in Exclude<
     keyof T,
     keyof any[]
@@ -102,7 +104,8 @@ export type GetEvaluatedChildren<
     }
   : never;
 
-const input = `map(arr(5,5,5), fn(n, add(n, 1)))` as const;
+const input =
+  `map(arr("hello","world"),fn(s,i,add(tostring(i),":",s)))` as const;
 const lex_result = null as unknown as Lex<typeof input>;
 const parse_result = null as unknown as Parse<typeof lex_result>;
 const eval_result = null as unknown as Evaluate<typeof parse_result>;

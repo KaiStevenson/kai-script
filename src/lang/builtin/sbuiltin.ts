@@ -1,6 +1,6 @@
 import { ASTNode, StackFrame } from "../core/common";
 import { CallFn, FnPrim, GetEvaluatedChildren, EvalError } from "../core/eval";
-import { ToString } from "../util";
+import { ExtractNumber, ToString } from "../util";
 
 export type SBUILTIN_Call<
   Node extends ASTNode,
@@ -21,7 +21,7 @@ export type SBUILTIN_Map<
   infer Arr extends readonly any[],
   infer Fn extends FnPrim
 ]
-  ? { [Idx in keyof Arr]: CallFn<Fn, [Arr[Idx]], Frame> }
+  ? { [Idx in keyof Arr]: CallFn<Fn, [Arr[Idx], ExtractNumber<Idx>], Frame> }
   : EvalError<`Invalid params for map: ${ToString<
       GetEvaluatedChildren<Node, Frame>
     >}`>;

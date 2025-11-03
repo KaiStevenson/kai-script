@@ -32,3 +32,6 @@ export type Multiply<M extends number, N extends number> = MultiplyInner<
   M,
   NumberToArray<N>
 >;
+
+export type ExtractNumber<T extends any> =
+  T extends `${infer Inner extends number}` ? Inner : never;
