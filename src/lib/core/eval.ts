@@ -55,6 +55,18 @@ export type AddStrings<
   ? AddStrings<Tail, `${Carry}${Head}`>
   : Carry;
 
+export type MultiplyInner<
+  N extends number,
+  MS extends readonly any[],
+  Carry extends number = 0
+> = MS extends [infer Head extends number, ...infer Tail extends readonly any[]]
+  ? MultiplyInner<N, Tail, AddNumbers<[Carry, N]>>
+  : Carry;
+export type Multiply<M extends number, N extends number> = MultiplyInner<
+  M,
+  NumberToArray<N>
+>;
+
 export type BUILTIN_Arr<Args extends readonly any[]> = Args;
 
 export type BUILTIN_ToString<Args extends readonly any[]> = ToStringInner<
@@ -70,6 +82,16 @@ export type BUILTIN_Add<Args extends readonly any[]> =
     ? AddNumbers<Args>
     : FnError<`Cannot add operands ${ToStringInner<Args>}`>;
 
+export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
+  infer A,
+  infer B,
+  infer C
+]
+  ? FnError<`Can only multiply [number, number], but got ${ToStringInner<Args>}`>
+  : Args extends [infer M extends number, infer N extends number]
+  ? Multiply<M, N>
+  : FnError<`Can only multiply [number, number], but got ${ToStringInner<Args>}`>;
+
 export type SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
 export type MapBuiltins<Node extends ASTNode> =
   Node["children"] extends infer Children extends readonly ASTNode[]
@@ -84,6 +106,8 @@ export type MapBuiltins<Node extends ASTNode> =
         ? BUILTIN_Arr<Args>
         : Node["name"] extends "add"
         ? BUILTIN_Add<Args>
+        : Node["name"] extends "mul"
+        ? BUILTIN_Mul<Args>
         : SENTINEL_NO_BUILTIN
       : never
     : never;
@@ -96,7 +120,7 @@ export type Evaluate<Node extends ASTNode> = Node["type"] extends NodeType.INT
   ? MapBuiltins<Node>
   : EvalError<`Unhandled node type ${Node["type"]}`>;
 
-const input = `add(1,2,3,4,5)` as const;
+const input = `` as const;
 const lex_result = null as unknown as Lex<typeof input>;
 const parse_result = null as unknown as Parse<typeof lex_result>;
 const eval_result = null as unknown as Evaluate<typeof parse_result>;
