@@ -40,23 +40,52 @@ export type ProcessNameCollection<
 export type IsOpen<T> = T extends `${TokenType.OPEN_PAREN}` ? true : false;
 export type IsClose<T> = T extends `${TokenType.CLOSE_PAREN}` ? true : false;
 
-export type _Lex<Ctx extends LexerCtx> =
-  Ctx["next"] extends `${infer Head}${infer Tail}`
-    ? IsWhitespace<Head> extends true
-      ? _Lex<ProcessNameCollection<Ctx, Tail, null>>
-      : IsOpen<Head> extends true
-      ? _Lex<ProcessNameCollection<Ctx, Tail, Token<TokenType.OPEN_PAREN>>>
-      : IsClose<Head> extends true
-      ? _Lex<ProcessNameCollection<Ctx, Tail, Token<TokenType.CLOSE_PAREN>>>
-      : _Lex<{
+export type ChunkedLex<
+  Ctx extends LexerCtx,
+  Depth extends any[] = []
+> = Depth["length"] extends 50
+  ? Ctx & {
+      endChunk: true;
+    }
+  : Ctx["next"] extends `${infer Head}${infer Tail}`
+  ? IsWhitespace<Head> extends true
+    ? ChunkedLex<ProcessNameCollection<Ctx, Tail, null>, [0, ...Depth]>
+    : IsOpen<Head> extends true
+    ? ChunkedLex<
+        ProcessNameCollection<Ctx, Tail, Token<TokenType.OPEN_PAREN>>,
+        [0, ...Depth]
+      >
+    : IsClose<Head> extends true
+    ? ChunkedLex<
+        ProcessNameCollection<Ctx, Tail, Token<TokenType.CLOSE_PAREN>>,
+        [0, ...Depth]
+      >
+    : ChunkedLex<
+        {
           next: Tail;
           nameCollection: `${Ctx["nameCollection"]}${Head}`;
           tokens: Ctx["tokens"];
-        }>
-    : Ctx["tokens"];
+        },
+        [0, ...Depth]
+      >
+  : Ctx;
 
-export type Lex<Raw extends string> = _Lex<{
-  next: `${Raw};`;
-  tokens: [];
-  nameCollection: "";
-}>;
+export type InnerLex<
+  Next extends string,
+  NameCollection extends LexerCtx["nameCollection"] = "",
+  AccTokens extends Token[] = []
+> = Next extends ""
+  ? AccTokens
+  : ChunkedLex<{
+      next: Next;
+      tokens: [];
+      nameCollection: NameCollection;
+    }> extends infer U
+  ? U extends LexerCtx & { endChunk: true }
+    ? InnerLex<U["next"], U["nameCollection"], [...AccTokens, ...U["tokens"]]>
+    : U extends LexerCtx
+    ? [...AccTokens, ...U["tokens"]]
+    : never
+  : never;
+
+export type Lex<Raw extends string> = InnerLex<Raw>;

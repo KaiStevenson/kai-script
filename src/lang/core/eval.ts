@@ -105,7 +105,7 @@ export type GetEvaluatedChildren<
   : never;
 
 const input =
-  `map(arr("hello","world"),fn(s,i,add(tostring(i),":",s)))` as const;
+  `map(arr("hello", "world"), fn(s, i, add(tostring(i), ":", s)))` as const;
 const lex_result = null as unknown as Lex<typeof input>;
 const parse_result = null as unknown as Parse<typeof lex_result>;
 const eval_result = null as unknown as Evaluate<typeof parse_result>;
