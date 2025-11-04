@@ -1,5 +1,27 @@
 {
+  "name": "@aberrantflux/kai-script",
+  "description": "A type safe framework for TypeScript",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "tsc"
+  },
+  "exports": {
+    "types": "./dist/index.d.ts",
+    "default": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "src",
+    "package.json",
+    "pnpm-lock.yaml",
+    "tsconfig.json"
+  ],
   "devDependencies": {
+    "typescript": "^5.9.3",
     "tsx": "^4.19.2"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "packageManager": "pnpm@10.20.0"
 }
