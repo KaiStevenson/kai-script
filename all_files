@@ -1,0 +1,940 @@
+export * from "./lang";
+export * from "./ts-lang";
+export * from "./ks-lang";
+export * from "./js-lang";
+type BUILTIN = (args: any[]) => any;
+
+export const V_BUILTIN_Arr: BUILTIN = (args) => args;
+
+// FIXME actually implement this properly
+export const V_BUILTIN_ToString: BUILTIN = (args) =>
+  args.length === 1 ? JSON.stringify(args[0]) : JSON.stringify(args);
+
+export const V_BUILTIN_Add: BUILTIN = (args) => {
+  if (args.every((arg) => ["string", "number"].includes(typeof arg))) {
+    return args.reduce(
+      (acc, cur) => acc + cur,
+      typeof args[0] === "string" ? "" : 0
+    );
+  }
+
+  throw new Error(`Cannot add operands ${JSON.stringify(args, undefined, 2)}`);
+};
+
+export const V_BUILTIN_Mul: BUILTIN = (args) => {
+  if (args.every((arg) => typeof arg === "number") && args.length === 2) {
+    return args.reduce((acc, cur) => acc * cur, 1);
+  }
+
+  throw new Error(
+    `Can only multiply [number, number], but got ${JSON.stringify(
+      args,
+      undefined,
+      2
+    )}`
+  );
+};
+
+export const nameToBUILTIN: Record<string, BUILTIN> = {
+  arr: V_BUILTIN_Arr,
+  tostring: V_BUILTIN_ToString,
+  add: V_BUILTIN_Add,
+  mul: V_BUILTIN_Mul,
+};
+export * from "./builtin";
+export * from "./sbuiltin";
+import { callFn, getEvaluatedChildren } from "../core/eval";
+import { ASTNode, FnPrim, StackFrame } from "../../ts-lang";
+
+type SBUILTIN = (node: ASTNode, frame: StackFrame) => any;
+
+export const V_SBUILTIN_Call: SBUILTIN = (node, frame) => {
+  const children = getEvaluatedChildren(node, frame);
+  const fn = children[0] as FnPrim | undefined;
+
+  if (!fn?.fn) {
+    throw new Error(
+      `Invalid params for function call: ${JSON.stringify(
+        children,
+        undefined,
+        2
+      )}`
+    );
+  }
+
+  return callFn(fn, children.slice(1), frame);
+};
+
+export const V_SBUILTIN_Map: SBUILTIN = (node, frame) => {
+  const children = getEvaluatedChildren(node, frame);
+  const fn = children[1] as FnPrim | undefined;
+
+  if (!fn?.fn) {
+    throw new Error(
+      `Invalid params for map: ${JSON.stringify(children, undefined, 2)}`
+    );
+  }
+
+  const values = children[0];
+
+  if (!Array.isArray(values)) {
+    // add to ts
+    throw new Error(`Can't map non-array value: ${values}`);
+  }
+
+  return values.map((v, i) => callFn(fn, [v, i], frame));
+};
+
+export const nameToSBUILTIN: Record<string, SBUILTIN> = {
+  call: V_SBUILTIN_Call,
+  map: V_SBUILTIN_Map,
+};
+import {
+  ASTNode,
+  StackFrame,
+  Evaluate,
+  EmptyStackFrame,
+  NodeType,
+  FnPrim,
+  SENTINEL_NO_BUILTIN,
+} from "../../ts-lang";
+import { nameToBUILTIN, nameToSBUILTIN, V_SBUILTIN_Map } from "../builtin";
+
+const V_SENTINEL_NO_BUILTIN: SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
+
+const mapBuiltins = (node: ASTNode, frame: StackFrame): any => {
+  if (node.name in nameToSBUILTIN) {
+    return nameToSBUILTIN[node.name](node, frame);
+  }
+  if (node.name in nameToBUILTIN) {
+    return nameToBUILTIN[node.name](getEvaluatedChildren(node, frame));
+  }
+
+  return V_SENTINEL_NO_BUILTIN;
+};
+
+const findInStack = (frame: StackFrame, nameToFind: string) => {
+  if (nameToFind in frame.bindings) {
+    return frame.bindings[nameToFind];
+  }
+
+  if (!frame.parent) {
+    throw new Error(`Can't find name ${nameToFind} on the stack`);
+  }
+
+  return findInStack(frame.parent, nameToFind);
+};
+
+const handleFn = (node: ASTNode): FnPrim => {
+  const fn = node.children[node.children.length - 1];
+
+  return {
+    args: node.children.slice(0, node.children.length - 1),
+    fn,
+  };
+};
+
+const mapZip = (args: ASTNode[], values: any[]) =>
+  Object.fromEntries(args.map(({ name }, i) => [name, values[i]]));
+
+export const callFn = (fn: FnPrim, values: any[], frame: StackFrame) =>
+  _evaluate(fn.fn, {
+    bindings: mapZip(fn.args as ASTNode[], values),
+    parent: frame,
+  });
+
+export const _evaluate = (node: ASTNode, frame: StackFrame) => {
+  if (node.type === NodeType.INT) {
+    return node.value;
+  }
+
+  if (node.type === NodeType.EXT) {
+    if (node.name === "fn") {
+      return handleFn(node);
+    }
+
+    const builtinResult = mapBuiltins(node, frame);
+    if (builtinResult !== V_SENTINEL_NO_BUILTIN) {
+      return builtinResult;
+    }
+
+    return findInStack(frame, node.name);
+  }
+
+  throw new Error(`Unhandled node type ${node.type}`);
+};
+
+export const getEvaluatedChildren = (node: ASTNode, frame: StackFrame) =>
+  node.children.map((child) => _evaluate(child, frame));
+
+export const emptyStackFrame: EmptyStackFrame = { bindings: {}, parent: null };
+
+export const evaluate = <const Node extends ASTNode>(
+  node: Node
+): Evaluate<Node> => _evaluate(node, emptyStackFrame) as Evaluate<Node>;
+export * from "./eval";
+export * from "./parser";
+export * from "./lexer";
+import { TokenType, Lex, Token } from "../../ts-lang";
+
+const WHITESPACE_TOKENS = [
+  TokenType.SPACE,
+  TokenType.COMMA,
+  TokenType.SEMICOLON,
+] as string[];
+
+export const lex = <const Raw extends string>(raw: Raw): Lex<Raw> => {
+  let _raw: string = raw;
+  let nameCollection = "";
+  const tokens: Token[] = [];
+
+  while (_raw) {
+    const head = _raw[0];
+    _raw = _raw.slice(1);
+
+    const processNameCollection = () => {
+      if (nameCollection) {
+        tokens.push({ type: TokenType.NAME, name: nameCollection });
+        nameCollection = "";
+      }
+    };
+
+    if (WHITESPACE_TOKENS.includes(head)) {
+      processNameCollection();
+      continue;
+    }
+
+    if (head === TokenType.OPEN_PAREN) {
+      processNameCollection();
+      tokens.push({ type: TokenType.OPEN_PAREN, name: "" });
+      continue;
+    }
+
+    if (head === TokenType.CLOSE_PAREN) {
+      processNameCollection();
+      tokens.push({ type: TokenType.CLOSE_PAREN, name: "" });
+      continue;
+    }
+
+    nameCollection += head;
+  }
+
+  return tokens as Lex<Raw>;
+};
+import { Token, Parse, TokenType, ASTNode, NodeType } from "../../ts-lang";
+import { lex } from "./lexer";
+
+const resolveNodeFromToken = (token: Token): ASTNode => {
+  // FIXME not correct
+  if (!isNaN(Number(token.name))) {
+    return {
+      type: NodeType.INT,
+      name: "",
+      value: Number(token.name),
+      children: [],
+    };
+  }
+  if (token.name[0] === '"' && token.name[token.name.length - 1] === '"') {
+    return {
+      type: NodeType.INT,
+      name: "",
+      value: token.name.slice(1, token.name.length - 1),
+      children: [],
+    };
+  }
+  return {
+    type: NodeType.EXT,
+    name: token.name,
+    value: null,
+    children: [],
+  };
+};
+
+const _parse = ({
+  remainingTokens,
+  lastToken,
+  stack,
+}: {
+  remainingTokens: Token[];
+  lastToken: Token | null;
+  stack: ASTNode[];
+}): ASTNode | null => {
+  const head = remainingTokens.shift();
+  if (!head) {
+    if (lastToken) {
+      (stack[stack.length - 1].children as ASTNode[]).push(
+        resolveNodeFromToken(lastToken)
+      );
+
+      return _parse({
+        lastToken: null,
+        remainingTokens: [],
+        stack,
+      });
+    }
+
+    return stack[0] ?? null;
+  }
+
+  if (lastToken) {
+    if (head.type === TokenType.NAME) {
+      (stack[stack.length - 1].children as ASTNode[]).push(
+        resolveNodeFromToken(lastToken)
+      );
+      return _parse({
+        lastToken: head,
+        remainingTokens,
+        stack,
+      });
+    }
+
+    if (head.type === TokenType.CLOSE_PAREN) {
+      const top = stack.pop()!;
+      (top.children as ASTNode[]).push(resolveNodeFromToken(lastToken));
+      (stack[stack.length - 1].children as ASTNode[]).push(top);
+
+      return _parse({
+        lastToken: null,
+        remainingTokens,
+        stack,
+      });
+    }
+
+    if (head.type === TokenType.OPEN_PAREN) {
+      return _parse({
+        lastToken: null,
+        remainingTokens,
+        stack: [...stack, resolveNodeFromToken(lastToken)],
+      });
+    }
+
+    throw new Error(
+      `${JSON.stringify({
+        lastToken,
+        remainingTokens,
+        stack,
+      })} Was not expecting ${head.type}`
+    );
+  }
+
+  if (head.type === TokenType.NAME) {
+    return _parse({
+      lastToken: head,
+      remainingTokens,
+      stack,
+    });
+  }
+
+  if (head.type === TokenType.CLOSE_PAREN) {
+    const top = stack.pop()!;
+    (stack[stack.length - 1].children as ASTNode[]).push(top);
+
+    return _parse({
+      lastToken: null,
+      remainingTokens,
+      stack,
+    });
+  }
+
+  throw new Error(
+    `${JSON.stringify({
+      lastToken,
+      remainingTokens,
+      stack,
+    })} Expected nextToken to be a name or close paren at ${head.type}`
+  );
+};
+
+export const parse = <const Raw extends readonly Token[]>(
+  raw: Raw
+): Parse<Raw> =>
+  _parse({
+    remainingTokens: raw as unknown as Token[],
+    lastToken: null,
+    stack: [{ type: NodeType.EXT, name: "arr", value: null, children: [] }],
+  }) as Parse<Raw>;
+export * from "./core";
+import { callFn, emptyStackFrame, evaluate, lex, parse } from "../js-lang";
+import {
+  Evaluate,
+  FnPrim,
+  Lex,
+  Parse,
+  EvalError,
+  CallFn,
+  EmptyStackFrame,
+} from "../ts-lang";
+
+export const createFn = <Program extends string>(
+  program: Program
+): Evaluate<Parse<Lex<Program>>> extends [infer ProgramFn extends FnPrim]
+  ? <const Args extends any[]>(
+      ...args: Args
+    ) => CallFn<ProgramFn, Args, EmptyStackFrame>
+  : EvalError<"Cannot create a function from a program that does not eval to a function"> => {
+  const [programFn] = evaluate(parse(lex(program))) as Array<FnPrim>;
+  if (!programFn.fn) {
+    throw new Error(
+      "Cannot create a function from a program that does not eval to a function"
+    );
+  }
+
+  return ((...args: any[]) => callFn(programFn, args, emptyStackFrame)) as any;
+};
+import { FnError } from ".";
+import {
+  AddNumbers,
+  AddStrings,
+  Multiply,
+  ToString,
+  UnarrayIfOnlyHead,
+} from "../util";
+
+export type BUILTIN_Arr<Args extends readonly any[]> = Args;
+
+export type BUILTIN_ToString<Args extends readonly any[]> = ToString<
+  UnarrayIfOnlyHead<{
+    [Idx in keyof Args]: ToString<Args[Idx]>;
+  }>
+>;
+
+export type BUILTIN_Add<Args extends readonly any[]> =
+  Args extends readonly string[]
+    ? AddStrings<Args>
+    : Args extends readonly number[]
+    ? AddNumbers<Args>
+    : FnError<`Cannot add operands ${ToString<Args>}`>;
+
+export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
+  infer A,
+  infer B,
+  infer C
+]
+  ? FnError<`Can only multiply [number, number], but got ${ToString<Args>}`>
+  : Args extends [infer M extends number, infer N extends number]
+  ? Multiply<M, N>
+  : FnError<`Can only multiply [number, number], but got ${ToString<Args>}`>;
+export type FnError<T extends string> = `Function execution error: ${T}`;
+export * from "./builtin";
+export * from "./sbuiltin";
+import { ASTNode, StackFrame } from "../core/common";
+import { CallFn, FnPrim, GetEvaluatedChildren, EvalError } from "../core/eval";
+import { ExtractNumber, ToString } from "../util";
+
+export type SBUILTIN_Call<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = GetEvaluatedChildren<Node, Frame> extends [
+  infer Fn extends FnPrim,
+  ...infer Values extends readonly any[]
+]
+  ? CallFn<Fn, Values, Frame>
+  : EvalError<`Invalid params for function call: ${ToString<
+      GetEvaluatedChildren<Node, Frame>
+    >}`>;
+
+export type SBUILTIN_Map<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = GetEvaluatedChildren<Node, Frame> extends [
+  infer Arr extends readonly any[],
+  infer Fn extends FnPrim
+]
+  ? { [Idx in keyof Arr]: CallFn<Fn, [Arr[Idx], ExtractNumber<Idx>], Frame> }
+  : EvalError<`Invalid params for map: ${ToString<
+      GetEvaluatedChildren<Node, Frame>
+    >}`>;
+export enum TokenType {
+  OPEN_PAREN = "(",
+  CLOSE_PAREN = ")",
+  SPACE = " ",
+  SEMICOLON = ";",
+  COMMA = ",",
+  NAME = "NAME",
+}
+
+export type Token<
+  Type extends TokenType = TokenType,
+  Name extends string = string
+> = {
+  type: Type;
+  name: Name;
+};
+
+export type LexerCtx = {
+  next: string;
+  nameCollection: string;
+  tokens: readonly Token[];
+};
+
+export enum NodeType {
+  INT = "INT",
+  EXT = "EXT",
+  PARSER_ERROR = "PARSER_ERROR",
+}
+
+export type ASTNode<
+  Type extends NodeType = NodeType,
+  Name extends string = string,
+  Value extends any = any,
+  Children extends readonly ASTNode[] = readonly ASTNode<
+    NodeType,
+    string,
+    any,
+    any
+  >[]
+> = {
+  type: Type;
+  name: Name;
+  value: Value;
+  children: Children;
+};
+
+export type ParserCtx = {
+  remainingTokens: readonly Token[];
+  lastToken: Token | null;
+  stack: readonly ASTNode[];
+};
+
+export type StackFrame<
+  Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>,
+  Parent extends StackFrame | null = any
+> = {
+  bindings: Bindings;
+  parent: Parent;
+};
+
+export type EmptyStackFrame = StackFrame<{}, null>;
+
+export type WithPushedBindings<
+  OldFrame extends StackFrame,
+  Bindings extends StackFrame["bindings"]
+> = StackFrame<Bindings, OldFrame>;
+import {
+  BUILTIN_Add,
+  BUILTIN_Arr,
+  BUILTIN_Mul,
+  BUILTIN_ToString,
+  SBUILTIN_Call,
+  SBUILTIN_Map,
+} from "../builtin";
+import { ToString } from "../util";
+import { ASTNode, EmptyStackFrame, NodeType, StackFrame } from "./common";
+
+export type SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
+export type MapBuiltins<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = GetEvaluatedChildren<Node, Frame> extends infer Args extends readonly any[]
+  ? Node["name"] extends "call"
+    ? SBUILTIN_Call<Node, Frame>
+    : Node["name"] extends "map"
+    ? SBUILTIN_Map<Node, Frame>
+    : Node["name"] extends "tostring"
+    ? BUILTIN_ToString<Args>
+    : Node["name"] extends "arr"
+    ? BUILTIN_Arr<Args>
+    : Node["name"] extends "add"
+    ? BUILTIN_Add<Args>
+    : Node["name"] extends "mul"
+    ? BUILTIN_Mul<Args>
+    : SENTINEL_NO_BUILTIN
+  : never;
+
+export type EvalError<T extends string> = `Eval error: ${T}`;
+
+export type FindInStack<
+  Frame extends StackFrame,
+  NameToFind
+> = NameToFind extends keyof Frame["bindings"]
+  ? Frame["bindings"][NameToFind]
+  : Frame["parent"] extends null
+  ? EvalError<`Can't find name "${ToString<NameToFind>}" on the stack`>
+  : FindInStack<Frame["parent"], NameToFind>;
+
+export type FnPrim<
+  Args extends readonly ASTNode[] = readonly ASTNode[],
+  Fn extends ASTNode = ASTNode
+> = { args: Args; fn: Fn };
+
+export type HandleFn<Node extends ASTNode> = Node["children"] extends [
+  ...infer Args extends ASTNode[],
+  infer Fn extends ASTNode
+]
+  ? FnPrim<Args, Fn>
+  : // error?
+    never;
+
+// any[] was propertykey
+export type MapZip<
+  Args extends readonly ASTNode[],
+  Values extends readonly any[]
+> = {
+  [Idx in Exclude<
+    keyof Args,
+    keyof any[]
+  > as Args[Idx] extends infer Node extends ASTNode
+    ? Node["name"]
+    : never]: Idx extends keyof Values ? Values[Idx] : never;
+};
+
+export type CallFn<
+  Fn extends FnPrim,
+  Values extends readonly any[],
+  Frame extends StackFrame
+> = _Evaluate<Fn["fn"], StackFrame<MapZip<Fn["args"], Values>, Frame>>;
+
+export type _Evaluate<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = Node["type"] extends NodeType.INT
+  ? Node["value"]
+  : Node["type"] extends NodeType.EXT
+  ? // special builtin
+    Node["name"] extends "fn"
+    ? HandleFn<Node>
+    : MapBuiltins<Node, Frame> extends infer BI
+    ? BI extends SENTINEL_NO_BUILTIN
+      ? FindInStack<Frame, Node["name"]>
+      : BI
+    : never
+  : EvalError<`Unhandled node type ${Node["type"]}`>;
+
+export type GetEvaluatedChildren<
+  Node extends ASTNode,
+  Frame extends StackFrame
+> = Node["children"] extends infer Children extends readonly ASTNode[]
+  ? {
+      [Idx in keyof Children]: Children[Idx] extends ASTNode
+        ? _Evaluate<Children[Idx], Frame>
+        : never;
+    }
+  : never;
+
+export type Evaluate<Node extends ASTNode> = _Evaluate<Node, EmptyStackFrame>;
+export * from "./common";
+export * from "./eval";
+export * from "./parser";
+export * from "./lexer";
+import { LexerCtx, Token, TokenType } from "./common";
+
+export type IsWhitespace<T extends string> = T extends `${TokenType.SPACE}`
+  ? true
+  : T extends `${TokenType.COMMA}`
+  ? true
+  : T extends `${TokenType.SEMICOLON}`
+  ? true
+  : false;
+
+export type ProcessNameCollection<
+  Ctx extends LexerCtx,
+  Tail extends string,
+  _Token extends Token | null
+> = {
+  next: Tail;
+  nameCollection: "";
+  tokens: _Token extends null
+    ? [
+        ...Ctx["tokens"],
+        ...(Ctx["nameCollection"] extends ""
+          ? []
+          : [Token<TokenType.NAME, Ctx["nameCollection"]>])
+      ]
+    : [
+        ...Ctx["tokens"],
+        ...(Ctx["nameCollection"] extends ""
+          ? [_Token]
+          : [Token<TokenType.NAME, Ctx["nameCollection"]>, _Token])
+      ];
+};
+
+export type IsOpen<T> = T extends `${TokenType.OPEN_PAREN}` ? true : false;
+export type IsClose<T> = T extends `${TokenType.CLOSE_PAREN}` ? true : false;
+
+export type ChunkedLex<
+  Ctx extends LexerCtx,
+  Depth extends any[] = []
+> = Depth["length"] extends 50
+  ? Ctx & {
+      endChunk: true;
+    }
+  : Ctx["next"] extends `${infer Head}${infer Tail}`
+  ? IsWhitespace<Head> extends true
+    ? ChunkedLex<ProcessNameCollection<Ctx, Tail, null>, [0, ...Depth]>
+    : IsOpen<Head> extends true
+    ? ChunkedLex<
+        ProcessNameCollection<Ctx, Tail, Token<TokenType.OPEN_PAREN>>,
+        [0, ...Depth]
+      >
+    : IsClose<Head> extends true
+    ? ChunkedLex<
+        ProcessNameCollection<Ctx, Tail, Token<TokenType.CLOSE_PAREN>>,
+        [0, ...Depth]
+      >
+    : ChunkedLex<
+        {
+          next: Tail;
+          nameCollection: `${Ctx["nameCollection"]}${Head}`;
+          tokens: Ctx["tokens"];
+        },
+        [0, ...Depth]
+      >
+  : Ctx;
+
+export type InnerLex<
+  Next extends string,
+  NameCollection extends LexerCtx["nameCollection"] = "",
+  AccTokens extends Token[] = []
+> = Next extends ""
+  ? AccTokens
+  : ChunkedLex<{
+      next: Next;
+      tokens: [];
+      nameCollection: NameCollection;
+    }> extends infer U
+  ? U extends LexerCtx & { endChunk: true }
+    ? InnerLex<U["next"], U["nameCollection"], [...AccTokens, ...U["tokens"]]>
+    : U extends LexerCtx
+    ? [...AccTokens, ...U["tokens"]]
+    : never
+  : never;
+
+export type Lex<Raw extends string> = InnerLex<`${Raw};`>;
+import { ASTNode, NodeType, ParserCtx, Token, TokenType } from "./common";
+
+export type Error<T extends string> = ASTNode<
+  NodeType.PARSER_ERROR,
+  "Error",
+  T,
+  []
+>;
+
+export type PushChild<Node extends ASTNode, Child extends ASTNode> = {
+  type: Node["type"];
+  value: Node["value"];
+  name: Node["name"];
+  children: [...Node["children"], Child];
+};
+
+export type PushChildToLastElementOfStack<
+  Stack extends ParserCtx["stack"],
+  Child extends ASTNode
+> = Stack extends [...infer Head, infer Tail extends ASTNode]
+  ? [...Head, PushChild<Tail, Child>]
+  : Stack extends [infer Only extends ASTNode]
+  ? [PushChild<Only, Child>]
+  : never;
+
+export type PushChildToSecondLastElementOfStack<
+  Stack extends ParserCtx["stack"],
+  Child extends ASTNode
+> = Stack extends [
+  ...infer Head,
+  infer Tail extends ASTNode,
+  infer Final extends ASTNode
+]
+  ? [...Head, PushChild<Tail, Child>, Final]
+  : Stack extends [infer Only extends ASTNode, infer Final extends ASTNode]
+  ? [PushChild<Only, Child>, Final]
+  : never;
+
+export type GetLastOnStack<Stack extends ParserCtx["stack"]> = Stack extends [
+  ...infer Head,
+  infer Tail extends ASTNode
+]
+  ? Tail
+  : Stack extends [infer Only extends ASTNode]
+  ? Only
+  : never;
+
+export type StackWithoutLast<Stack extends ParserCtx["stack"]> = Stack extends [
+  ...infer Head extends ASTNode[],
+  infer Tail
+]
+  ? [...Head]
+  : Stack extends [infer Only extends ASTNode]
+  ? []
+  : never;
+
+type NULL_SENTINEL = {
+  NULL: true;
+};
+
+export type ParseNumberLiteral<T extends string> =
+  T extends `${infer Inner extends number}` ? Inner : NULL_SENTINEL;
+
+export type ParseStringLiteral<T extends string> =
+  T extends `"${infer Inner extends string}"` ? Inner : NULL_SENTINEL;
+
+export type ResolveNodeFromToken<_Token extends Token> = ParseNumberLiteral<
+  _Token["name"]
+> extends number
+  ? ASTNode<NodeType.INT, "", ParseNumberLiteral<_Token["name"]>, []>
+  : ParseStringLiteral<_Token["name"]> extends string
+  ? ASTNode<NodeType.INT, "", ParseStringLiteral<_Token["name"]>, []>
+  : ASTNode<NodeType.EXT, _Token["name"], null, []>;
+
+export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
+  infer Head extends Token,
+  ...infer Tail extends readonly Token[]
+]
+  ? Ctx["lastToken"] extends Token
+    ? Head["type"] extends TokenType.NAME
+      ? // we already have a lastToken
+        // mutate last element of stack to push lastToken as child
+        // lastToken = nextToken
+        // goto start
+        _Parse<{
+          lastToken: Head;
+          remainingTokens: Tail;
+          stack: PushChildToLastElementOfStack<
+            Ctx["stack"],
+            ResolveNodeFromToken<Ctx["lastToken"]>
+          >;
+        }>
+      : //nextToken is openParen or close paren
+      Head["type"] extends TokenType.CLOSE_PAREN
+      ? // handle lastToken
+        // set last element of stack as child of prev element on stack
+        // pop stack
+        // [stack[last - 1].children.push(stack.pop)
+        // goto start
+        _Parse<{
+          lastToken: null;
+          remainingTokens: Tail;
+          // first push the last name onto the children of the top
+          // then push the top onto the children of the next
+          // then remove the top
+          stack: StackWithoutLast<
+            PushChildToSecondLastElementOfStack<
+              Ctx["stack"],
+              PushChild<
+                GetLastOnStack<Ctx["stack"]>,
+                ResolveNodeFromToken<Ctx["lastToken"]>
+              >
+            >
+          >;
+        }>
+      : Head["type"] extends TokenType.OPEN_PAREN
+      ? // push lastToken onto stack
+        // goto start
+        _Parse<{
+          lastToken: null;
+          remainingTokens: Tail;
+          stack: [...Ctx["stack"], ResolveNodeFromToken<Ctx["lastToken"]>];
+        }>
+      : Ctx & Error<`Was not expecting ${Head["type"]}`>
+    : // expect nextToken to be a name or close paren
+    Head["type"] extends TokenType.NAME
+    ? // lastToken = nextToken
+      // goto start
+      _Parse<{
+        lastToken: Head;
+        remainingTokens: Tail;
+        stack: Ctx["stack"];
+      }>
+    : Head["type"] extends TokenType.CLOSE_PAREN
+    ? _Parse<{
+        lastToken: null;
+        remainingTokens: Tail;
+        // push the top onto the children of the next
+        // then remove the top
+        stack: StackWithoutLast<
+          PushChildToSecondLastElementOfStack<
+            Ctx["stack"],
+            GetLastOnStack<Ctx["stack"]>
+          >
+        >;
+      }>
+    : Ctx &
+        Error<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
+  : Ctx["lastToken"] extends Token
+  ? // case where we ended with a name
+    _Parse<{
+      lastToken: null;
+      remainingTokens: [];
+      stack: PushChildToLastElementOfStack<
+        Ctx["stack"],
+        ResolveNodeFromToken<Ctx["lastToken"]>
+      >;
+    }>
+  : Ctx["stack"][0];
+
+export type Parse<Raw extends readonly Token[]> = _Parse<{
+  lastToken: null;
+  remainingTokens: Raw;
+  stack: [ASTNode<NodeType.EXT, "arr", null, []>];
+}>;
+export * from "./core";
+export * from "./number";
+export * from "./utils";
+export * from "./string";
+export type NumberToArray<
+  Number extends number,
+  Carry extends readonly any[] = []
+> = Number extends Carry["length"]
+  ? Carry
+  : NumberToArray<Number, [...Carry, any]>;
+
+export type NumbersToArray<
+  Numbers extends readonly number[],
+  Carry extends readonly any[] = []
+> = Numbers extends [
+  infer Head extends number,
+  ...infer Tail extends readonly number[]
+]
+  ? NumbersToArray<Tail, [...Carry, ...NumberToArray<Head>]>
+  : Carry;
+
+export type AddNumbers<Numbers extends readonly number[]> =
+  NumbersToArray<Numbers> extends infer T extends readonly any[]
+    ? T["length"]
+    : never;
+
+export type MultiplyInner<
+  N extends number,
+  MS extends readonly any[],
+  Carry extends number = 0
+> = MS extends [infer Head extends number, ...infer Tail extends readonly any[]]
+  ? MultiplyInner<N, Tail, AddNumbers<[Carry, N]>>
+  : Carry;
+
+export type Multiply<M extends number, N extends number> = MultiplyInner<
+  M,
+  NumberToArray<N>
+>;
+
+export type ExtractNumber<T extends any> =
+  T extends `${infer Inner extends number}` ? Inner : never;
+export type AddStrings<
+  Strings extends readonly string[],
+  Carry extends string = ""
+> = Strings extends [infer Head extends string, ...infer Tail extends string[]]
+  ? AddStrings<Tail, `${Carry}${Head}`>
+  : Carry;
+
+export type ToString<T, Carry extends string = ""> = T extends string | number
+  ? `${T}`
+  : T extends readonly any[]
+  ? T extends readonly [infer Head, ...infer Tail]
+    ? `${ToString<
+        Tail,
+        `${Carry extends "" ? "" : `${Carry}, `}${ToString<Head>}`
+      >}`
+    : `[${Carry}]`
+  : never;
+export type UnarrayIfOnlyHead<T extends readonly any[]> = T extends [
+  infer Head,
+  infer Next
+]
+  ? T
+  : T extends [infer Head]
+  ? Head
+  : T;
+import { evaluate, lex, parse } from "./lang";
+import { createFn } from "./lang";
+
+const adder = createFn("fn(x, map(arr(10,20,30), fn(y, add(x, y))))");
+
+const result = adder(5);
+console.log(result);

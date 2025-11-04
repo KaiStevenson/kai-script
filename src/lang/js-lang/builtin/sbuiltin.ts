@@ -3,7 +3,7 @@ import { ASTNode, FnPrim, StackFrame } from "../../ts-lang";
 
 type SBUILTIN = (node: ASTNode, frame: StackFrame) => any;
 
-export const V_SBUITLIN_Call: SBUILTIN = (node, frame) => {
+export const V_SBUILTIN_Call: SBUILTIN = (node, frame) => {
   const children = getEvaluatedChildren(node, frame);
   const fn = children[0] as FnPrim | undefined;
 
@@ -41,6 +41,6 @@ export const V_SBUILTIN_Map: SBUILTIN = (node, frame) => {
 };
 
 export const nameToSBUILTIN: Record<string, SBUILTIN> = {
-  call: V_SBUITLIN_Call,
+  call: V_SBUILTIN_Call,
   map: V_SBUILTIN_Map,
 };
