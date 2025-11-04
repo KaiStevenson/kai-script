@@ -1,11 +1,4 @@
-import { LexerCtx, Token, TokenSubType, TokenType } from "./common";
-
-export type BreakingToken =
-  | TokenType.OPEN_PAREN
-  | TokenType.CLOSE_PAREN
-  | TokenType.COMMA
-  | TokenType.SEMICOLON
-  | TokenType.SPACE;
+import { LexerCtx, Token, TokenType } from "./common";
 
 export type IsWhitespace<T extends string> = T extends `${TokenType.SPACE}`
   ? true
@@ -88,4 +81,4 @@ export type InnerLex<
     : never
   : never;
 
-export type Lex<Raw extends string> = InnerLex<Raw>;
+export type Lex<Raw extends string> = InnerLex<`${Raw};`>;

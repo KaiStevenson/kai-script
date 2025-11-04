@@ -8,8 +8,6 @@ import {
 } from "../builtin";
 import { ToString } from "../util";
 import { ASTNode, EmptyStackFrame, NodeType, StackFrame } from "./common";
-import { Lex } from "./lexer";
-import { Parse } from "./parser";
 
 export type SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
 export type MapBuiltins<
@@ -42,11 +40,6 @@ export type FindInStack<
   ? EvalError<`Can't find name "${ToString<NameToFind>}" on the stack`>
   : FindInStack<Frame["parent"], NameToFind>;
 
-export type MapOnStack<
-  Node extends ASTNode,
-  Frame extends StackFrame
-> = FindInStack<Frame, Node["name"]>;
-
 export type FnPrim<
   Args extends readonly ASTNode[] = readonly ASTNode[],
   Fn extends ASTNode = ASTNode
@@ -57,29 +50,31 @@ export type HandleFn<Node extends ASTNode> = Node["children"] extends [
   infer Fn extends ASTNode
 ]
   ? FnPrim<Args, Fn>
-  : never;
+  : // error?
+    never;
 
+// any[] was propertykey
 export type MapZip<
-  T extends readonly ASTNode[],
-  U extends readonly PropertyKey[]
+  Args extends readonly ASTNode[],
+  Values extends readonly any[]
 > = {
   [Idx in Exclude<
-    keyof T,
+    keyof Args,
     keyof any[]
-  > as T[Idx] extends infer Node extends ASTNode
+  > as Args[Idx] extends infer Node extends ASTNode
     ? Node["name"]
-    : never]: Idx extends keyof U ? U[Idx] : never;
+    : never]: Idx extends keyof Values ? Values[Idx] : never;
 };
 
 export type CallFn<
   Fn extends FnPrim,
   Values extends readonly any[],
   Frame extends StackFrame
-> = Evaluate<Fn["fn"], StackFrame<MapZip<Fn["args"], Values>, Frame>>;
+> = _Evaluate<Fn["fn"], StackFrame<MapZip<Fn["args"], Values>, Frame>>;
 
-export type Evaluate<
+export type _Evaluate<
   Node extends ASTNode,
-  Frame extends StackFrame = EmptyStackFrame
+  Frame extends StackFrame
 > = Node["type"] extends NodeType.INT
   ? Node["value"]
   : Node["type"] extends NodeType.EXT
@@ -88,7 +83,7 @@ export type Evaluate<
     ? HandleFn<Node>
     : MapBuiltins<Node, Frame> extends infer BI
     ? BI extends SENTINEL_NO_BUILTIN
-      ? MapOnStack<Node, Frame>
+      ? FindInStack<Frame, Node["name"]>
       : BI
     : never
   : EvalError<`Unhandled node type ${Node["type"]}`>;
@@ -99,13 +94,9 @@ export type GetEvaluatedChildren<
 > = Node["children"] extends infer Children extends readonly ASTNode[]
   ? {
       [Idx in keyof Children]: Children[Idx] extends ASTNode
-        ? Evaluate<Children[Idx], Frame>
+        ? _Evaluate<Children[Idx], Frame>
         : never;
     }
   : never;
 
-const input =
-  `map(arr("hello", "world"), fn(s, i, add(tostring(i), ":", s)))` as const;
-const lex_result = null as unknown as Lex<typeof input>;
-const parse_result = null as unknown as Parse<typeof lex_result>;
-const eval_result = null as unknown as Evaluate<typeof parse_result>;
+export type Evaluate<Node extends ASTNode> = _Evaluate<Node, EmptyStackFrame>;

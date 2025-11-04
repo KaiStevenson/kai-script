@@ -7,12 +7,6 @@ export enum TokenType {
   NAME = "NAME",
 }
 
-export enum TokenSubType {
-  NA = "NA",
-  LITERAL = "LITERAL",
-  REFERENCE = "REFERENCE",
-}
-
 export type Token<
   Type extends TokenType = TokenType,
   Name extends string = string

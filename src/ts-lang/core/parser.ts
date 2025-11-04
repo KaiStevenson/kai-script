@@ -1,12 +1,4 @@
-import {
-  ASTNode,
-  NodeType,
-  ParserCtx,
-  Token,
-  TokenSubType,
-  TokenType,
-} from "./common";
-import { Lex } from "./lexer";
+import { ASTNode, NodeType, ParserCtx, Token, TokenType } from "./common";
 
 export type Error<T extends string> = ASTNode<
   NodeType.PARSER_ERROR,
