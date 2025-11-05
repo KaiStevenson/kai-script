@@ -72,6 +72,7 @@ export type ResolveNodeFromToken<_Token extends Token> = ParseNumberLiteral<
   ? ASTNode<NodeType.INT, "", ParseStringLiteral<_Token["name"]>, []>
   : ASTNode<NodeType.EXT, _Token["name"], null, []>;
 
+// FIXME don't need lastToken
 export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
   infer Head extends Token,
   ...infer Tail extends readonly Token[]
@@ -122,7 +123,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
           stack: [...Ctx["stack"], ResolveNodeFromToken<Ctx["lastToken"]>];
         }>
       : Ctx & Error<`Was not expecting ${Head["type"]}`>
-    : // expect nextToken to be a name or close paren
+    : // expect nextToken to be a name or open paren or close paren
     Head["type"] extends TokenType.NAME
     ? // lastToken = nextToken
       // goto start
@@ -144,8 +145,15 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
           >
         >;
       }>
-    : Ctx &
-        Error<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
+    : Head["type"] extends TokenType.OPEN_PAREN
+    ? // push lastToken onto stack
+      // goto start
+      _Parse<{
+        lastToken: null;
+        remainingTokens: Tail;
+        stack: Ctx["stack"];
+      }>
+    : Ctx & Error<`Was not expecting ${Head["type"]}`>
   : Ctx["lastToken"] extends Token
   ? // case where we ended with a name
     _Parse<{

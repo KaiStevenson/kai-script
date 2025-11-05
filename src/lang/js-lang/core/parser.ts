@@ -113,12 +113,20 @@ const _parse = ({
     });
   }
 
+  if (head.type === TokenType.OPEN_PAREN) {
+    return _parse({
+      lastToken: null,
+      remainingTokens,
+      stack,
+    });
+  }
+
   throw new Error(
     `${JSON.stringify({
       lastToken,
       remainingTokens,
       stack,
-    })} Expected nextToken to be a name or close paren at ${head.type}`
+    })} Was not expecting ${head.type}`
   );
 };
 
