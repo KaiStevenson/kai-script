@@ -20,6 +20,18 @@ export type AddNumbers<Numbers extends readonly number[]> =
     ? T["length"]
     : never;
 
+export type SubNumbersInternal<
+  MS extends readonly unknown[],
+  NS extends readonly unknown[]
+> = MS extends readonly [...NS, ...infer Tail] ? Tail : never;
+
+export type SubNumbers<M extends number, N extends number> = SubNumbersInternal<
+  NumberToArray<M>,
+  NumberToArray<N>
+> extends infer T extends readonly any[]
+  ? T["length"]
+  : never;
+
 export type MultiplyInner<
   N extends number,
   MS extends readonly any[],

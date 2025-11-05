@@ -6,7 +6,7 @@ export type SBUILTIN_Call<
   Node extends ASTNode,
   Frame extends StackFrame
 > = GetEvaluatedChildren<Node, Frame> extends [
-  infer Fn extends FnPrim,
+  infer Fn,
   ...infer Values extends readonly any[]
 ]
   ? CallFn<Fn, Values, Frame>

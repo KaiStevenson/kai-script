@@ -17,6 +17,22 @@ export const V_BUILTIN_Add: BUILTIN = (args) => {
   throw new Error(`Cannot add operands ${JSON.stringify(args, undefined, 2)}`);
 };
 
+export const V_BUILTIN_Sub: BUILTIN = (args) => {
+  if (args.length !== 2) {
+    throw new Error(
+      `Can only sub [number, number], but got ${JSON.stringify(args)}`
+    );
+  }
+
+  if (isNaN(args[0]) || isNaN(args[1])) {
+    throw new Error(
+      `Can only sub [number, number], but got ${JSON.stringify(args)}`
+    );
+  }
+
+  return args[0] - args[1];
+};
+
 export const V_BUILTIN_Mul: BUILTIN = (args) => {
   if (args.every((arg) => typeof arg === "number") && args.length === 2) {
     return args.reduce((acc, cur) => acc * cur, 1);
@@ -29,6 +45,33 @@ export const V_BUILTIN_Mul: BUILTIN = (args) => {
       2
     )}`
   );
+};
+
+export const V_BUILTIN_Eq: BUILTIN = (args) => {
+  const firstLast = {};
+  let last = firstLast;
+
+  for (const arg of args) {
+    if (!["number", "string", "boolean"].includes(typeof arg)) {
+      throw new Error(
+        `Can only check equality of numbers or string or boolean, but got ${JSON.stringify(
+          args
+        )}`
+      );
+    }
+
+    if (last === firstLast) {
+      continue;
+    }
+
+    if (arg === last) {
+      continue;
+    }
+
+    return false;
+  }
+
+  return true;
 };
 
 export const V_BUILTIN_IfElse: BUILTIN = (args) => {
@@ -49,6 +92,8 @@ export const nameToBUILTIN: Record<string, BUILTIN> = {
   arr: V_BUILTIN_Arr,
   tostring: V_BUILTIN_ToString,
   add: V_BUILTIN_Add,
+  sub: V_BUILTIN_Sub,
   mul: V_BUILTIN_Mul,
+  eq: V_BUILTIN_Eq,
   "?": V_BUILTIN_IfElse,
 };

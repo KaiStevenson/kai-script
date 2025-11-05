@@ -51,16 +51,20 @@ export type ParserCtx = {
 };
 
 export type StackFrame<
-  Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>,
-  Parent extends StackFrame | null = any
+  Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>
 > = {
   bindings: Bindings;
-  parent: Parent;
 };
 
-export type EmptyStackFrame = StackFrame<{}, null>;
+export type EmptyStackFrame = StackFrame<{}>;
 
-export type WithPushedBindings<
+export type MergeStackFrames<
   OldFrame extends StackFrame,
-  Bindings extends StackFrame["bindings"]
-> = StackFrame<Bindings, OldFrame>;
+  NewFrame extends StackFrame
+> = StackFrame<{
+  [K in
+    | keyof OldFrame["bindings"]
+    | keyof NewFrame["bindings"]]: K extends keyof NewFrame["bindings"]
+    ? NewFrame["bindings"][K]
+    : OldFrame["bindings"][K];
+}>;

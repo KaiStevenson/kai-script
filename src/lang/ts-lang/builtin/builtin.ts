@@ -2,7 +2,9 @@ import { FnError } from ".";
 import {
   AddNumbers,
   AddStrings,
+  ArrayEqual,
   Multiply,
+  SubNumbers,
   ToString,
   UnarrayIfOnlyHead,
 } from "../util";
@@ -22,6 +24,16 @@ export type BUILTIN_Add<Args extends readonly any[]> =
     ? AddNumbers<Args>
     : FnError<`Cannot add operands ${ToString<Args>}`>;
 
+export type BUILTIN_Sub<Args extends readonly any[]> = Args extends [
+  infer A,
+  infer B,
+  infer C
+]
+  ? FnError<`Can only sub [number, number], but got ${ToString<Args>}`>
+  : Args extends [infer M extends number, infer N extends number]
+  ? SubNumbers<M, N>
+  : FnError<`Can only sub [number, number], but got ${ToString<Args>}`>;
+
 export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
   infer A,
   infer B,
@@ -31,6 +43,13 @@ export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
   : Args extends [infer M extends number, infer N extends number]
   ? Multiply<M, N>
   : FnError<`Can only multiply [number, number], but got ${ToString<Args>}`>;
+
+export type BUILTIN_Eq<Args extends readonly any[]> = Args extends
+  | readonly number[]
+  | readonly string[]
+  | readonly boolean[]
+  ? ArrayEqual<Args>
+  : FnError<`Can only check equality of numbers or string or boolean, but got ${ToString<Args>}`>;
 
 export type BUILTIN_IfElse<Args extends readonly any[]> = Args extends [
   infer A,
