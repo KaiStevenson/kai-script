@@ -1,6 +1,7 @@
 import {
   BUILTIN_Add,
   BUILTIN_Arr,
+  BUILTIN_IfElse,
   BUILTIN_Mul,
   BUILTIN_ToString,
   SBUILTIN_Call,
@@ -26,6 +27,8 @@ export type MapBuiltins<
     ? BUILTIN_Add<Args>
     : Node["name"] extends "mul"
     ? BUILTIN_Mul<Args>
+    : Node["name"] extends "?"
+    ? BUILTIN_IfElse<Args>
     : SENTINEL_NO_BUILTIN
   : never;
 

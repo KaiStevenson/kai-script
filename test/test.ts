@@ -1,6 +1,10 @@
 import { createFn } from "../src";
 
-const adder = createFn("fn(x, map(arr(10,20,30), fn(y, add(x, y))))");
+const KS_boolToBin = "fn(b, ?(b, 1, 0))";
 
-const result = adder(5);
+const boolArrToBinaryArr = createFn<[boolean[]]>()(
+  `fn(boolArr, map(boolArr, ${KS_boolToBin}))`
+);
+
+const result = boolArrToBinaryArr([true, false, true]);
 console.log(result);

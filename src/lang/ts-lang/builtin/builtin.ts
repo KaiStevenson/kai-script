@@ -31,3 +31,18 @@ export type BUILTIN_Mul<Args extends readonly any[]> = Args extends [
   : Args extends [infer M extends number, infer N extends number]
   ? Multiply<M, N>
   : FnError<`Can only multiply [number, number], but got ${ToString<Args>}`>;
+
+export type BUILTIN_IfElse<Args extends readonly any[]> = Args extends [
+  infer A,
+  infer B,
+  infer C,
+  infer D
+]
+  ? FnError<`Invalid args for "if": ${ToString<Args>}`>
+  : Args extends [infer Cond, infer TrueVal, infer FalseVal]
+  ? Cond extends true
+    ? TrueVal
+    : Cond extends false
+    ? FalseVal
+    : FnError<`Condition value ${ToString<Cond>} is not a boolean`>
+  : FnError<`Invalid args for "if": ${ToString<Args>}`>;
