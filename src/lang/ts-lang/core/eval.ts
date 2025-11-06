@@ -2,14 +2,14 @@ import {
   BUILTIN_Add,
   BUILTIN_Arr,
   BUILTIN_Eq,
-  BUILTIN_IfElse,
   BUILTIN_Mul,
   BUILTIN_Sub,
   BUILTIN_ToString,
   SBUILTIN_Call,
+  SBUILTIN_IfElse,
   SBUILTIN_Map,
 } from "../builtin";
-import { NumberToArray, ToString } from "../util";
+import { ToString } from "../util";
 import {
   ASTNode,
   EmptyStackFrame,
@@ -18,15 +18,24 @@ import {
   StackFrame,
 } from "./common";
 
+export type RECURSION_DEPTH_LIMIT = 7;
+
 export type SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
 export type MapBuiltins<
   Node extends ASTNode,
-  Frame extends StackFrame
-> = GetEvaluatedChildren<Node, Frame> extends infer Args extends readonly any[]
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
+> = GetEvaluatedChildren<
+  Node,
+  Frame,
+  Callstack
+> extends infer Args extends readonly any[]
   ? Node["name"] extends "call"
-    ? SBUILTIN_Call<Node, Frame>
+    ? SBUILTIN_Call<Node, Frame, Callstack>
     : Node["name"] extends "map"
-    ? SBUILTIN_Map<Node, Frame>
+    ? SBUILTIN_Map<Node, Frame, Callstack>
+    : Node["name"] extends "?"
+    ? SBUILTIN_IfElse<Node, Frame, Callstack>
     : Node["name"] extends "tostring"
     ? BUILTIN_ToString<Args>
     : Node["name"] extends "arr"
@@ -39,8 +48,6 @@ export type MapBuiltins<
     ? BUILTIN_Mul<Args>
     : Node["name"] extends "eq"
     ? BUILTIN_Eq<Args>
-    : Node["name"] extends "?"
-    ? BUILTIN_IfElse<Args>
     : SENTINEL_NO_BUILTIN
   : never;
 
@@ -60,58 +67,17 @@ export type FnPrim<
   Fn extends ASTNode = ASTNode
 > = { args: Args; fn: Fn };
 
-export type NamedFnPrim<
-  Args extends readonly ASTNode[],
-  Fn extends ASTNode,
-  Name extends string,
-  CapturedFrame extends StackFrame
-> = { args: Args; fn: Fn; name: Name; frame: CapturedFrame };
-
-type BuildDeepBinding<
-  FnPrim extends NamedFnPrim<any, any, any, any>,
-  Depth extends readonly any[] = [any, any, any, any, any, any, any]
-> = Depth extends []
-  ? FnPrim
-  : BuildDeepBinding<
-      NamedFnPrim<
-        FnPrim["args"],
-        FnPrim["fn"],
-        FnPrim["name"],
-        MergeStackFrames<
-          FnPrim["frame"],
-          StackFrame<{
-            [K in FnPrim["name"]]: NamedFnPrim<
-              FnPrim["args"],
-              FnPrim["fn"],
-              FnPrim["name"],
-              FnPrim["frame"]
-            >;
-          }>
-        >
-      >,
-      Depth extends [infer Head, ...infer Tail] ? Tail : []
-    >;
-
 export type HandleBind<
   Node extends ASTNode,
-  Frame extends StackFrame
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
 > = Node["children"] extends [
   infer Name extends ASTNode,
   infer Value extends ASTNode
 ]
-  ? _Evaluate<Value, Frame> extends infer U
+  ? _Evaluate<Value, Frame, [...Callstack, "bind"]> extends infer U
     ? U extends FnPrim
-      ? NamedFnPrim<
-          U["args"],
-          U["fn"],
-          Name["name"],
-          Frame
-        > extends infer NamedFn
-        ? NamedFn extends NamedFnPrim<infer A, infer F, infer N, any>
-          ? // RECURSION DEPTH LIMIT = 5
-            BuildDeepBinding<NamedFn, NumberToArray<5>>
-          : never
-        : never
+      ? readonly [U, Frame, Name["name"]]
       : U
     : never
   : never;
@@ -141,48 +107,69 @@ export type MapZip<
 export type CallFn<
   Fn,
   Values extends readonly any[],
-  Frame extends StackFrame
-> = Fn extends NamedFnPrim<
-  infer Args,
-  infer FnBody,
-  infer Name,
-  infer CapturedFrame
->
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
+> = Fn extends readonly [
+  infer Prim extends FnPrim,
+  infer CapturedFrame extends StackFrame,
+  infer Name extends ASTNode["name"]
+]
   ? _Evaluate<
-      FnBody,
-      MergeStackFrames<CapturedFrame, StackFrame<MapZip<Args, Values>>>
+      Prim["fn"],
+      MergeStackFrames<
+        CapturedFrame,
+        MergeStackFrames<
+          StackFrame<{ [K in Name]: Fn }>,
+          StackFrame<MapZip<Prim["args"], Values>>
+        >
+      >,
+      [...Callstack, "call"]
     >
   : Fn extends FnPrim<infer Args, infer FnBody>
-  ? _Evaluate<FnBody, MergeStackFrames<Frame, StackFrame<MapZip<Args, Values>>>>
+  ? _Evaluate<
+      FnBody,
+      MergeStackFrames<Frame, StackFrame<MapZip<Args, Values>>>,
+      [...Callstack, "call"]
+    >
   : Fn;
 
 export type _Evaluate<
   Node extends ASTNode,
-  Frame extends StackFrame
-> = Node["type"] extends NodeType.INT
-  ? Node["value"]
-  : Node["type"] extends NodeType.EXT
-  ? // special builtins
-    Node["name"] extends "bind"
-    ? HandleBind<Node, Frame>
-    : Node["name"] extends "fn"
-    ? HandleFn<Node, Frame>
-    : MapBuiltins<Node, Frame> extends infer BI
-    ? BI extends SENTINEL_NO_BUILTIN
-      ? FindInStack<Frame, Node["name"]>
-      : BI
-    : never
-  : EvalError<`Unhandled node type ${Node["type"]}`>;
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
+> = Callstack extends infer C extends readonly any[]
+  ? C["length"] extends RECURSION_DEPTH_LIMIT
+    ? EvalError<`Too deep: ${ToString<Callstack>}`>
+    : Node["type"] extends NodeType.INT
+    ? Node["value"]
+    : Node["type"] extends NodeType.EXT
+    ? // special builtins
+      Node["name"] extends "bind"
+      ? HandleBind<Node, Frame, Callstack>
+      : Node["name"] extends "fn"
+      ? HandleFn<Node, Frame>
+      : MapBuiltins<Node, Frame, Callstack> extends infer BI
+      ? BI extends SENTINEL_NO_BUILTIN
+        ? FindInStack<Frame, Node["name"]>
+        : BI
+      : never
+    : EvalError<`Unhandled node type ${Node["type"]}`>
+  : never;
 
 export type GetEvaluatedChildren<
   Node extends ASTNode,
-  Frame extends StackFrame
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
 > = Node["children"] extends infer Children extends readonly ASTNode[]
   ? {
       [Idx in keyof Children]: Children[Idx] extends ASTNode
-        ? _Evaluate<Children[Idx], Frame>
+        ? _Evaluate<Children[Idx], Frame, Callstack>
         : never;
     }
   : never;
 
-export type Evaluate<Node extends ASTNode> = _Evaluate<Node, EmptyStackFrame>;
+export type Evaluate<Node extends ASTNode> = _Evaluate<
+  Node,
+  EmptyStackFrame,
+  []
+>;

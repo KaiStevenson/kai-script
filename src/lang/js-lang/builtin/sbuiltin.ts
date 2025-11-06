@@ -1,4 +1,4 @@
-import { callFn, getEvaluatedChildren } from "../core/eval";
+import { _evaluate, callFn, getEvaluatedChildren } from "../core/eval";
 import { ASTNode, FnPrim, StackFrame } from "../../ts-lang";
 
 type SBUILTIN = (node: ASTNode, frame: StackFrame) => any;
@@ -40,7 +40,24 @@ export const V_SBUILTIN_Map: SBUILTIN = (node, frame) => {
   return values.map((v, i) => callFn(fn, [v, i], frame));
 };
 
+export const V_SBUILTIN_IfElse: SBUILTIN = (node, frame) => {
+  const children = node.children;
+
+  if (children.length !== 3) {
+    throw new Error(`Invalid args for "if": ${JSON.stringify(children)}`);
+  }
+
+  const cond = _evaluate(children[0], frame);
+
+  if (typeof cond !== "boolean") {
+    throw new Error(`Condition value ${JSON.stringify(cond)} is not a boolean`);
+  }
+
+  return cond ? _evaluate(children[1], frame) : _evaluate(children[2], frame);
+};
+
 export const nameToSBUILTIN: Record<string, SBUILTIN> = {
   call: V_SBUILTIN_Call,
   map: V_SBUILTIN_Map,
+  "?": V_SBUILTIN_IfElse,
 };

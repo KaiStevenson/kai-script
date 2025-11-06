@@ -50,11 +50,11 @@ export type ParserCtx = {
   stack: readonly ASTNode[];
 };
 
-export type StackFrame<
+export interface StackFrame<
   Bindings extends Record<ASTNode["name"], any> = Record<ASTNode["name"], any>
-> = {
+> {
   bindings: Bindings;
-};
+}
 
 export type EmptyStackFrame = StackFrame<{}>;
 

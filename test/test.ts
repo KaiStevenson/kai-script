@@ -1,4 +1,4 @@
-import { _Evaluate, createFn } from "../src";
+import { _Evaluate, createFn, evaluate, lex, parse } from "../src";
 
 const KS_boolToBin = "fn(b, ?(b, 1, 0))";
 
@@ -11,5 +11,9 @@ const factorial = createFn<[number]>()(
 );
 
 const res = factorial(6);
+console.log(res);
 
-// console.log(factorial(2));
+const closureTest = createFn<[number]>()(`fn(n, call(fn(m, add(m,n)), n))`);
+
+const res2 = closureTest(5);
+console.log(res2);

@@ -50,18 +50,3 @@ export type BUILTIN_Eq<Args extends readonly any[]> = Args extends
   | readonly boolean[]
   ? ArrayEqual<Args>
   : FnError<`Can only check equality of numbers or string or boolean, but got ${ToString<Args>}`>;
-
-export type BUILTIN_IfElse<Args extends readonly any[]> = Args extends [
-  infer A,
-  infer B,
-  infer C,
-  infer D
-]
-  ? FnError<`Invalid args for "if": ${ToString<Args>}`>
-  : Args extends [infer Cond, infer TrueVal, infer FalseVal]
-  ? Cond extends true
-    ? TrueVal
-    : Cond extends false
-    ? FalseVal
-    : FnError<`Condition value ${ToString<Cond>} is not a boolean`>
-  : FnError<`Invalid args for "if": ${ToString<Args>}`>;

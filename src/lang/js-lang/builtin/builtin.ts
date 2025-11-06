@@ -61,10 +61,12 @@ export const V_BUILTIN_Eq: BUILTIN = (args) => {
     }
 
     if (last === firstLast) {
+      last = arg;
       continue;
     }
 
     if (arg === last) {
+      last = arg;
       continue;
     }
 
@@ -74,20 +76,6 @@ export const V_BUILTIN_Eq: BUILTIN = (args) => {
   return true;
 };
 
-export const V_BUILTIN_IfElse: BUILTIN = (args) => {
-  if (args.length !== 3) {
-    throw new Error(`Invalid args for "if": ${JSON.stringify(args)}`);
-  }
-
-  const [cond, trueVal, falseVal] = args;
-
-  if (typeof cond !== "boolean") {
-    throw new Error(`Condition value ${JSON.stringify(cond)} is not a boolean`);
-  }
-
-  return cond ? trueVal : falseVal;
-};
-
 export const nameToBUILTIN: Record<string, BUILTIN> = {
   arr: V_BUILTIN_Arr,
   tostring: V_BUILTIN_ToString,
@@ -95,5 +83,4 @@ export const nameToBUILTIN: Record<string, BUILTIN> = {
   sub: V_BUILTIN_Sub,
   mul: V_BUILTIN_Mul,
   eq: V_BUILTIN_Eq,
-  "?": V_BUILTIN_IfElse,
 };

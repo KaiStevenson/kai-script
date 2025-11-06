@@ -6,6 +6,7 @@ import {
   NodeType,
   FnPrim,
   SENTINEL_NO_BUILTIN,
+  NamedFnPrim,
 } from "../../ts-lang";
 import { nameToBUILTIN, nameToSBUILTIN, V_SBUILTIN_Map } from "../builtin";
 
@@ -27,11 +28,24 @@ const findInStack = (frame: StackFrame, nameToFind: string) => {
     return frame.bindings[nameToFind];
   }
 
-  if (!frame.parent) {
-    throw new Error(`Can't find name ${nameToFind} on the stack`);
+  throw new Error(`Can't find name ${nameToFind} on the stack`);
+};
+
+const handleBind = (node: ASTNode, frame: StackFrame) => {
+  const inner = _evaluate(node.children[1], frame);
+
+  if (inner.fn) {
+    const named: NamedFnPrim<any, any, any, any> = {
+      args: inner.args,
+      fn: inner.fn,
+      name: node.children[0].name,
+      frame,
+    };
+
+    return named;
   }
 
-  return findInStack(frame.parent, nameToFind);
+  return inner;
 };
 
 const handleFn = (node: ASTNode): FnPrim => {
@@ -46,13 +60,22 @@ const handleFn = (node: ASTNode): FnPrim => {
 const mapZip = (args: ASTNode[], values: any[]) =>
   Object.fromEntries(args.map(({ name }, i) => [name, values[i]]));
 
-export const callFn = (fn: FnPrim, values: any[], frame: StackFrame) =>
-  _evaluate(fn.fn, {
-    bindings: mapZip(fn.args as ASTNode[], values),
-    parent: frame,
+export const callFn = (fn: FnPrim, values: any[], frame: StackFrame) => {
+  if ((fn as NamedFnPrim<any, any, any, any>).frame) {
+    return _evaluate(fn.fn, {
+      bindings: {
+        ...mapZip(fn.args as ASTNode[], values),
+        ...frame.bindings,
+        ...(fn as NamedFnPrim<any, any, any, any>).frame.bindings,
+      },
+    });
+  }
+  return _evaluate(fn.fn, {
+    bindings: { ...mapZip(fn.args as ASTNode[], values), ...frame.bindings },
   });
+};
 
-export const _evaluate = (node: ASTNode, frame: StackFrame) => {
+export const _evaluate = (node: ASTNode, frame: StackFrame): any => {
   if (node.type === NodeType.INT) {
     return node.value;
   }
@@ -60,6 +83,10 @@ export const _evaluate = (node: ASTNode, frame: StackFrame) => {
   if (node.type === NodeType.EXT) {
     if (node.name === "fn") {
       return handleFn(node);
+    }
+
+    if (node.name === "bind") {
+      return handleBind(node, frame);
     }
 
     const builtinResult = mapBuiltins(node, frame);
@@ -76,7 +103,7 @@ export const _evaluate = (node: ASTNode, frame: StackFrame) => {
 export const getEvaluatedChildren = (node: ASTNode, frame: StackFrame) =>
   node.children.map((child) => _evaluate(child, frame));
 
-export const emptyStackFrame: EmptyStackFrame = { bindings: {}, parent: null };
+export const emptyStackFrame: EmptyStackFrame = { bindings: {} };
 
 export const evaluate = <const Node extends ASTNode>(
   node: Node
