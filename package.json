@@ -1,7 +1,7 @@
 {
   "name": "@aberrantflux/kai-script",
   "description": "A type safe framework for TypeScript",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "tsc"
   },
@@ -12,6 +12,7 @@
   "files": [
     "dist",
     "src",
+    "examples",
     "package.json",
     "pnpm-lock.yaml",
     "tsconfig.json"

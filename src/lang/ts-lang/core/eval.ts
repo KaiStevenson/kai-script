@@ -107,8 +107,8 @@ export type MapZip<
 export type CallFn<
   Fn,
   Values extends readonly any[],
-  Frame extends StackFrame,
-  Callstack extends readonly string[]
+  Frame extends StackFrame = EmptyStackFrame,
+  Callstack extends readonly string[] = []
 > = Fn extends readonly [
   infer Prim extends FnPrim,
   infer CapturedFrame extends StackFrame,
