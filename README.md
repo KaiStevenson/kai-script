@@ -4,6 +4,8 @@
 
 This means that you can write programs inside TypeScript that evaluate without running the code. The inferred type of a KaiScript program is always exactly equal to the runtime value.
 
+![KaiScript example code](https://imgur.com/a/kaiscript-example-IXCEB4d)
+
 ## Using KaiScript
 
 To see what KaiScript is capable of, take a look at the guided tour here: [[EXAMPLES]](./examples/README.md)
@@ -28,7 +30,7 @@ You can't.
 
 > How can I publish a package for KaiScript?
 
-KaiScript doesn't have its own package manager, but it works natively with npm.
+KaiScript doesn't have its own package manager yet, but it works natively with npm.
 If you've written a useful library, just export it like so:
 
 ```typescript
