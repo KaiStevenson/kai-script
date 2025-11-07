@@ -4,7 +4,7 @@
 
 This means that you can write programs inside TypeScript that evaluate without running the code. The inferred type of a KaiScript program is always exactly equal to the runtime value.
 
-![KaiScript example code](https://imgur.com/a/kaiscript-example-IXCEB4d)
+![KaiScript example code](https://files.aberrantflux.xyz/pictures/kaiscript_example.png)
 
 ## Using KaiScript
 
