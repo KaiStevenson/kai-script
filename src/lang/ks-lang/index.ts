@@ -8,6 +8,7 @@ import {
   CallFn,
   EmptyStackFrame,
   ASTNode,
+  StackFrame,
 } from "../ts-lang";
 
 export type TransformArgs<Args extends readonly ASTNode[]> = {
@@ -40,13 +41,17 @@ export const createFn =
         : EvalError<`Program's args do not extend args constraint`>
       : EvalError<"Cannot create a function from a program that does not eval to a function">
     : never => {
-    const [programFn] = evaluate(parse(lex(program))) as Array<FnPrim>;
-    if (!programFn.fn) {
+    const [e] = evaluate(parse(lex(program))) as [
+      FnPrim | [FnPrim, StackFrame, ASTNode["name"]]
+    ];
+
+    const fn: FnPrim = Array.isArray(e) ? e[0] : e;
+
+    if (!fn.fn) {
       throw new Error(
         "Cannot create a function from a program that does not eval to a function"
       );
     }
 
-    return ((...args: any[]) =>
-      callFn(programFn, args, emptyStackFrame)) as any;
+    return ((...args: any[]) => callFn(e, args, emptyStackFrame)) as any;
   };

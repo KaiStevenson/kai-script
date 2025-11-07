@@ -7,7 +7,7 @@ export const V_SBUILTIN_Call: SBUILTIN = (node, frame) => {
   const children = getEvaluatedChildren(node, frame);
   const fn = children[0] as FnPrim | undefined;
 
-  if (!fn?.fn) {
+  if (!fn) {
     throw new Error(
       `Invalid params for function call: ${JSON.stringify(
         children,

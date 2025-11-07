@@ -6,9 +6,8 @@ import {
   NodeType,
   FnPrim,
   SENTINEL_NO_BUILTIN,
-  NamedFnPrim,
 } from "../../ts-lang";
-import { nameToBUILTIN, nameToSBUILTIN, V_SBUILTIN_Map } from "../builtin";
+import { nameToBUILTIN, nameToSBUILTIN } from "../builtin";
 
 const V_SENTINEL_NO_BUILTIN: SENTINEL_NO_BUILTIN = "__NO_BUILTIN__";
 
@@ -35,14 +34,7 @@ const handleBind = (node: ASTNode, frame: StackFrame) => {
   const inner = _evaluate(node.children[1], frame);
 
   if (inner.fn) {
-    const named: NamedFnPrim<any, any, any, any> = {
-      args: inner.args,
-      fn: inner.fn,
-      name: node.children[0].name,
-      frame,
-    };
-
-    return named;
+    return [inner, frame, node.children[0]["name"]];
   }
 
   return inner;
@@ -60,18 +52,23 @@ const handleFn = (node: ASTNode): FnPrim => {
 const mapZip = (args: ASTNode[], values: any[]) =>
   Object.fromEntries(args.map(({ name }, i) => [name, values[i]]));
 
-export const callFn = (fn: FnPrim, values: any[], frame: StackFrame) => {
-  if ((fn as NamedFnPrim<any, any, any, any>).frame) {
-    return _evaluate(fn.fn, {
+export const callFn = (
+  fn: FnPrim | [FnPrim, StackFrame, ASTNode["name"]],
+  values: any[],
+  frame: StackFrame
+) => {
+  if (Array.isArray(fn)) {
+    const [prim, frame, name] = fn;
+    return _evaluate(prim.fn, {
       bindings: {
-        ...mapZip(fn.args as ASTNode[], values),
         ...frame.bindings,
-        ...(fn as NamedFnPrim<any, any, any, any>).frame.bindings,
+        [name]: fn,
+        ...mapZip(prim.args as ASTNode[], values),
       },
     });
   }
   return _evaluate(fn.fn, {
-    bindings: { ...mapZip(fn.args as ASTNode[], values), ...frame.bindings },
+    bindings: { ...frame.bindings, ...mapZip(fn.args as ASTNode[], values) },
   });
 };
 
