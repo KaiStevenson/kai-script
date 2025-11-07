@@ -10,9 +10,13 @@ This means that you can write programs inside TypeScript that evaluate without r
 
 To see what KaiScript is capable of, take a look at the guided tour here: [[EXAMPLES]](./examples/README.md)
 
-## Source code
+## Links
 
-https://git.aberrantflux.xyz/kai-script.git/
+- [GitHub repository](https://github.com/KaiStevenson/kai-script)
+
+- [Self hosted repository](https://git.aberrantflux.xyz/kai-script.git/)
+
+- [NPM package](https://www.npmjs.com/package/@aberrantflux/kai-script)
 
 ## FAQ
 
