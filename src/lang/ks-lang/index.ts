@@ -11,6 +11,9 @@ import {
   StackFrame,
 } from "../ts-lang";
 
+export const evaluateProgram = <Program extends string>(program: Program) =>
+  evaluate(parse(lex(program)));
+
 export type TransformArgs<Args extends readonly ASTNode[]> = {
   [Idx in keyof Args]: any;
 };
