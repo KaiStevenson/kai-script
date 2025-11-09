@@ -1,4 +1,7 @@
-import { LexerCtx, Token, TokenType } from "./common";
+import { KSError, LexerCtx, Token, TokenType } from "./common";
+
+export type LexerError<Message extends string = string> =
+  KSError<`Lexer error: ${Message}`>;
 
 export type IsWhitespace<T extends string> = T extends `${TokenType.SPACE}`
   ? true

@@ -1,11 +1,14 @@
-import { ASTNode, NodeType, ParserCtx, Token, TokenType } from "./common";
+import {
+  ASTNode,
+  KSError,
+  NodeType,
+  ParserCtx,
+  Token,
+  TokenType,
+} from "./common";
 
-export type Error<T extends string> = ASTNode<
-  NodeType.PARSER_ERROR,
-  "Error",
-  T,
-  []
->;
+export type ParserError<Message extends string> =
+  KSError<`Parser error: ${Message}`>;
 
 export type PushChild<Node extends ASTNode, Child extends ASTNode> = {
   type: Node["type"];
@@ -129,7 +132,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
           remainingTokens: Tail;
           stack: [...Ctx["stack"], ResolveNodeFromToken<Ctx["lastToken"]>];
         }>
-      : Ctx & Error<`Was not expecting ${Head["type"]}`>
+      : ParserError<`Was not expecting ${Head["type"]}`>
     : // expect nextToken to be a name or close paren
     Head["type"] extends TokenType.NAME
     ? // lastToken = nextToken
@@ -152,8 +155,7 @@ export type _Parse<Ctx extends ParserCtx> = Ctx["remainingTokens"] extends [
           >
         >;
       }>
-    : Ctx &
-        Error<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
+    : ParserError<`Expected nextToken to be a name or close paren at ${Head["type"]}`>
   : Ctx["lastToken"] extends Token
   ? // case where we ended with a name
     _Parse<{
@@ -170,4 +172,10 @@ export type Parse<Raw extends readonly Token[]> = _Parse<{
   lastToken: null;
   remainingTokens: Raw;
   stack: [ASTNode<NodeType.EXT, "arr", null, []>];
-}>;
+}> extends infer P
+  ? P extends ASTNode
+    ? P
+    : P extends KSError<infer E>
+    ? E
+    : never
+  : never;

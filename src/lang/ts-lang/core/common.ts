@@ -68,3 +68,8 @@ export type MergeStackFrames<
     ? NewFrame["bindings"][K]
     : OldFrame["bindings"][K];
 }>;
+
+export type KSError<Message extends string = string> = {
+  __KS_ERROR: true;
+  message: Message;
+};

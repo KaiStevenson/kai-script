@@ -1,3 +1,4 @@
+import { AnySoaRecord } from "dns";
 import {
   BUILTIN_Add,
   BUILTIN_Arr,
@@ -13,10 +14,14 @@ import { ToString } from "../util";
 import {
   ASTNode,
   EmptyStackFrame,
+  KSError,
   MergeStackFrames,
   NodeType,
   StackFrame,
 } from "./common";
+
+export type EvalError<Message extends string> =
+  KSError<`Eval error: ${Message}`>;
 
 export type RECURSION_DEPTH_LIMIT = 7;
 
@@ -50,8 +55,6 @@ export type MapBuiltins<
     ? BUILTIN_Eq<Args>
     : SENTINEL_NO_BUILTIN
   : never;
-
-export type EvalError<T extends string> = `Eval error: ${T}`;
 
 export type FindInStack<
   Frame extends StackFrame,
@@ -168,8 +171,8 @@ export type GetEvaluatedChildren<
     }
   : never;
 
-export type Evaluate<Node extends ASTNode> = _Evaluate<
-  Node,
-  EmptyStackFrame,
-  []
->;
+export type Evaluate<Node> = Node extends ASTNode
+  ? _Evaluate<Node, EmptyStackFrame, []>
+  : Node extends KSError<infer E>
+  ? E
+  : EvalError<`Cannot evaluate ${ToString<Node>}`>;
