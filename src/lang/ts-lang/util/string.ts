@@ -5,7 +5,10 @@ export type AddStrings<
   ? AddStrings<Tail, `${Carry}${Head}`>
   : Carry;
 
-export type ToString<T, Carry extends string = ""> = T extends string | number
+export type ToString<T, Carry extends string = ""> = T extends
+  | string
+  | number
+  | boolean
   ? `${T}`
   : T extends readonly any[]
   ? T extends readonly [infer Head, ...infer Tail]

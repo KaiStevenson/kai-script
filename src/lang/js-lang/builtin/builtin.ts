@@ -2,9 +2,17 @@ type BUILTIN = (args: any[]) => any;
 
 export const V_BUILTIN_Arr: BUILTIN = (args) => args;
 
-// FIXME actually implement this properly
-export const V_BUILTIN_ToString: BUILTIN = (args) =>
-  args.length === 1 ? JSON.stringify(args[0]) : JSON.stringify(args);
+const toStringInner = (o: any): string => {
+  if (Array.isArray(o)) {
+    return `[${o.map(toStringInner).join(", ")}]`;
+  }
+
+  return o.toString();
+};
+
+export const V_BUILTIN_ToString: BUILTIN = (args) => {
+  return args.length === 1 ? toStringInner(args[0]) : toStringInner(args);
+};
 
 export const V_BUILTIN_Add: BUILTIN = (args) => {
   if (args.every((arg) => ["string", "number"].includes(typeof arg))) {

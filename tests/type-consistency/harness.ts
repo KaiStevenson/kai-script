@@ -64,13 +64,13 @@ describe(\`${harnessName}\`, () => {
     }) {
       tests.push(`describe(\`${name}\`, () => {
     const PROGRAM = \`${program}\` as const;
+    const fn = createFn()(PROGRAM)
     ${cases.map(
       ({ input, output }) => `test(\`${JSON.stringify(
         input
       )} -> ${JSON.stringify(output)}\`, () => {
     const input: ${JSON.stringify(input)} = ${JSON.stringify(input)};
     const expected: ${JSON.stringify(output)} = ${JSON.stringify(output)};
-    const fn = createFn()(PROGRAM)
     const result = fn(input)
 
     expect(result).toStrictEqual(expected);
