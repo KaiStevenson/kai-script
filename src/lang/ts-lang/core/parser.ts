@@ -64,10 +64,18 @@ export type ParseNumberLiteral<T extends string> =
 export type ParseStringLiteral<T extends string> =
   T extends `"${infer Inner extends string}"` ? Inner : NULL_SENTINEL;
 
+export type ParseBooleanLiteral<T extends string> = T extends `true`
+  ? true
+  : T extends `false`
+  ? false
+  : NULL_SENTINEL;
+
 export type ResolveNodeFromToken<_Token extends Token> = ParseNumberLiteral<
   _Token["name"]
 > extends number
   ? ASTNode<NodeType.INT, "", ParseNumberLiteral<_Token["name"]>, []>
+  : ParseBooleanLiteral<_Token["name"]> extends boolean
+  ? ASTNode<NodeType.INT, "", ParseBooleanLiteral<_Token["name"]>, []>
   : ParseStringLiteral<_Token["name"]> extends string
   ? ASTNode<NodeType.INT, "", ParseStringLiteral<_Token["name"]>, []>
   : ASTNode<NodeType.EXT, _Token["name"], null, []>;

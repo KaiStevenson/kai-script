@@ -6,7 +6,7 @@ const WHITESPACE_TOKENS = [
   TokenType.SEMICOLON,
 ] as string[];
 
-export const lex = <const Raw extends string>(raw: Raw): Lex<Raw> => {
+const _lex = (raw: string): Token[] => {
   let _raw: string = raw;
   let nameCollection = "";
   const tokens: Token[] = [];
@@ -42,5 +42,8 @@ export const lex = <const Raw extends string>(raw: Raw): Lex<Raw> => {
     nameCollection += head;
   }
 
-  return tokens as Lex<Raw>;
+  return tokens;
 };
+
+export const lex = <const Raw extends string>(raw: Raw): Lex<Raw> =>
+  _lex(`${raw};`) as Lex<Raw>;

@@ -11,6 +11,22 @@ const resolveNodeFromToken = (token: Token): ASTNode => {
       children: [],
     };
   }
+  if (token.name === "true") {
+    return {
+      type: NodeType.INT,
+      name: "",
+      value: true,
+      children: [],
+    };
+  }
+  if (token.name === "false") {
+    return {
+      type: NodeType.INT,
+      name: "",
+      value: false,
+      children: [],
+    };
+  }
   if (token.name[0] === '"' && token.name[token.name.length - 1] === '"') {
     return {
       type: NodeType.INT,

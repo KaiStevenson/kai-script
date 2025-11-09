@@ -1,15 +1,16 @@
 {
   "name": "@aberrantflux/kai-script",
   "description": "A type safe framework for TypeScript",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "repository": {
     "type": "git",
     "url": "git+https://git.aberrantflux.xyz/kai-script.git/"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --declaration",
     "generate-tests": "rm -f tests/type-consistency/generated/*.test.ts && tsx tests/type-consistency/generateAll.ts",
-    "test": "pnpm run generate-tests && vitest run --reporter verbose"
+    "test": "pnpm run generate-tests && vitest run --reporter verbose && tsc --noEmit --project tests/type-consistency/tsconfig.json",
+    "safe-publish": "rm -rf dist && pnpm build && pnpm test && npm publish"
   },
   "exports": {
     "types": "./dist/index.d.ts",
