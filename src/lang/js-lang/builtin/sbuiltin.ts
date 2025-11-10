@@ -40,6 +40,30 @@ export const V_SBUILTIN_Map: SBUILTIN = (node, frame) => {
   return values.map((v, i) => callFn(fn, [v, i], frame));
 };
 
+export const V_SBUILTIN_Reduce: SBUILTIN = (node, frame) => {
+  const children = getEvaluatedChildren(node, frame);
+  const fn = children[1] as FnPrim | undefined;
+  const acc = children[2];
+
+  if (!fn?.fn) {
+    throw new Error(
+      `Invalid params for reduce: ${JSON.stringify(children, undefined, 2)}`
+    );
+  }
+
+  const values = children[0];
+
+  if (!Array.isArray(values)) {
+    // add to ts
+    throw new Error(`Can't reduce non-array value: ${values}`);
+  }
+
+  return values.reduce(
+    (acc, cur, idx) => callFn(fn, [acc, cur, idx], frame),
+    acc
+  );
+};
+
 export const V_SBUILTIN_IfElse: SBUILTIN = (node, frame) => {
   const children = node.children;
 
@@ -59,5 +83,6 @@ export const V_SBUILTIN_IfElse: SBUILTIN = (node, frame) => {
 export const nameToSBUILTIN: Record<string, SBUILTIN> = {
   call: V_SBUILTIN_Call,
   map: V_SBUILTIN_Map,
+  reduce: V_SBUILTIN_Reduce,
   "?": V_SBUILTIN_IfElse,
 };

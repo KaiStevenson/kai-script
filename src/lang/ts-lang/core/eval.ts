@@ -8,6 +8,7 @@ import {
   SBUILTIN_Call,
   SBUILTIN_IfElse,
   SBUILTIN_Map,
+  SBUILTIN_Reduce,
 } from "../builtin";
 import { ToString } from "../util";
 import {
@@ -34,6 +35,8 @@ export type MapBuiltins<
     ? SBUILTIN_Call<Node, Frame, Callstack>
     : Node["name"] extends "map"
     ? SBUILTIN_Map<Node, Frame, Callstack>
+    : Node["name"] extends "reduce"
+    ? SBUILTIN_Reduce<Node, Frame, Callstack>
     : Node["name"] extends "?"
     ? SBUILTIN_IfElse<Node, Frame, Callstack>
     : Node["name"] extends "tostring"

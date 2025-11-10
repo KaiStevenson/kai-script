@@ -42,6 +42,34 @@ export type SBUILTIN_Map<
       GetEvaluatedChildren<Node, Frame, Callstack>
     >}`>;
 
+type Reduce<
+  Arr extends readonly any[],
+  Fn extends FnPrim,
+  Acc,
+  IdxLen extends readonly any[] = readonly []
+> = Arr extends [infer Head, ...infer Tail]
+  ? Reduce<
+      Tail,
+      Fn,
+      CallFn<Fn, [Acc, Head, IdxLen["length"]]>,
+      [...IdxLen, any]
+    >
+  : Acc;
+
+export type SBUILTIN_Reduce<
+  Node extends ASTNode,
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
+> = GetEvaluatedChildren<Node, Frame, Callstack> extends [
+  infer Arr extends readonly any[],
+  infer Fn extends FnPrim,
+  infer Acc
+]
+  ? Reduce<Arr, Fn, Acc>
+  : EvalError<`Invalid params for reduce: ${ToString<
+      GetEvaluatedChildren<Node, Frame, Callstack>
+    >}`>;
+
 export type SBUILTIN_IfElse<
   Node extends ASTNode,
   Frame extends StackFrame,
