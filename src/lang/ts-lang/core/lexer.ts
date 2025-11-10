@@ -36,7 +36,7 @@ export type IsClose<T> = T extends `${TokenType.CLOSE_PAREN}` ? true : false;
 export type ChunkedLex<
   Ctx extends LexerCtx,
   Depth extends any[] = []
-> = Depth["length"] extends 50
+> = Depth["length"] extends 25
   ? Ctx & {
       endChunk: true;
     }

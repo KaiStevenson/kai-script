@@ -70,6 +70,35 @@ export type SBUILTIN_Reduce<
       GetEvaluatedChildren<Node, Frame, Callstack>
     >}`>;
 
+type Filter<
+  Arr extends readonly any[],
+  Fn extends FnPrim,
+  Collected extends readonly any[] = [],
+  IdxLen extends readonly any[] = readonly []
+> = Arr extends [infer Head, ...infer Tail]
+  ? Filter<
+      Tail,
+      Fn,
+      CallFn<Fn, [Head, IdxLen["length"]]> extends true
+        ? [...Collected, Head]
+        : Collected,
+      [...IdxLen, any]
+    >
+  : Collected;
+
+export type SBUILTIN_Filter<
+  Node extends ASTNode,
+  Frame extends StackFrame,
+  Callstack extends readonly string[]
+> = GetEvaluatedChildren<Node, Frame, Callstack> extends [
+  infer Arr extends readonly any[],
+  infer Fn extends FnPrim
+]
+  ? Filter<Arr, Fn>
+  : EvalError<`Invalid params for filter: ${ToString<
+      GetEvaluatedChildren<Node, Frame, Callstack>
+    >}`>;
+
 export type SBUILTIN_IfElse<
   Node extends ASTNode,
   Frame extends StackFrame,

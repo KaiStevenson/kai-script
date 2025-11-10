@@ -64,6 +64,26 @@ export const V_SBUILTIN_Reduce: SBUILTIN = (node, frame) => {
   );
 };
 
+export const V_SBUILTIN_Filter: SBUILTIN = (node, frame) => {
+  const children = getEvaluatedChildren(node, frame);
+  const fn = children[1] as FnPrim | undefined;
+
+  if (!fn?.fn) {
+    throw new Error(
+      `Invalid params for filter: ${JSON.stringify(children, undefined, 2)}`
+    );
+  }
+
+  const values = children[0];
+
+  if (!Array.isArray(values)) {
+    // add to ts
+    throw new Error(`Can't filter non-array value: ${values}`);
+  }
+
+  return values.filter((v, idx) => callFn(fn, [v, idx], frame) === true);
+};
+
 export const V_SBUILTIN_IfElse: SBUILTIN = (node, frame) => {
   const children = node.children;
 
@@ -84,5 +104,6 @@ export const nameToSBUILTIN: Record<string, SBUILTIN> = {
   call: V_SBUILTIN_Call,
   map: V_SBUILTIN_Map,
   reduce: V_SBUILTIN_Reduce,
+  filter: V_SBUILTIN_Filter,
   "?": V_SBUILTIN_IfElse,
 };

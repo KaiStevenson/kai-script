@@ -1,7 +1,7 @@
 {
   "name": "@aberrantflux/kai-script",
   "description": "A type safe framework for TypeScript",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "repository": {
     "type": "git",
     "url": "https://git.aberrantflux.xyz/kai-script.git/"

@@ -6,6 +6,7 @@ import {
   BUILTIN_Sub,
   BUILTIN_ToString,
   SBUILTIN_Call,
+  SBUILTIN_Filter,
   SBUILTIN_IfElse,
   SBUILTIN_Map,
   SBUILTIN_Reduce,
@@ -37,6 +38,8 @@ export type MapBuiltins<
     ? SBUILTIN_Map<Node, Frame, Callstack>
     : Node["name"] extends "reduce"
     ? SBUILTIN_Reduce<Node, Frame, Callstack>
+    : Node["name"] extends "filter"
+    ? SBUILTIN_Filter<Node, Frame, Callstack>
     : Node["name"] extends "?"
     ? SBUILTIN_IfElse<Node, Frame, Callstack>
     : Node["name"] extends "tostring"
